@@ -26,6 +26,7 @@ from nio import (
 
 from middleman.callbacks import Callbacks
 from middleman.config import Config
+from middleman.models.Repositories.Repositories import Repositories
 from middleman.storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,10 @@ async def main(config: Config):
     # Configure the database
     store = Storage(config.database)
 
+    # Initialise global model repositories:
+    repositories = Repositories(store)
+    store.set_repositories(repositories)
+    
     # Configuration options for the AsyncClient
     client_config = AsyncClientConfig(
         max_limit_exceeded=0,
