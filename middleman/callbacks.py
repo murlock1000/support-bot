@@ -236,7 +236,7 @@ class Callbacks(object):
             return
         logger.debug(f"Got invite to {room.room_id} from {event.sender}.")
 
-        result = await with_ratelimit(self.client, "join", room.room_id)
+        result = await with_ratelimit(self.client.join)(room.room_id)
         if type(result) == JoinError:
             logger.error("Unable to join room: %s", room.room_id)
             return

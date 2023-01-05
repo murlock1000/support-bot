@@ -1,3 +1,4 @@
+import asyncio
 from logging import Logger
 import re
 import time
@@ -83,13 +84,25 @@ async def get_room_id(client: nio.AsyncClient, room: str, logger: Logger) -> str
         raise ValueError(message="Unknown room identifier")
 
 
-async def with_ratelimit(client, method, *args, **kwargs):
+async def sleep_ms(delay_ms):
+    deadzone = 50  # 50ms additional wait time.
+    delay_s = (delay_ms + deadzone) / 1000
+
+    await asyncio.sleep(delay_s)
+
+def with_ratelimit(func):
     """
-    Call a client method with 3s backoff if rate limited.
+    Decorator for calling client methods with backoff, specified in server response if rate limited.
     """
-    func = getattr(client, method)
-    response = await func(*args, **kwargs)
-    if getattr(response, "status_code", None) == "M_LIMIT_EXCEEDED":
-        time.sleep(3)
-        return with_ratelimit(client, method, *args, **kwargs)
-    return response
+    async def wrapper(*args, **kwargs):
+        while True:
+            response = await func(*args, **kwargs)
+            if isinstance(response, nio.ErrorResponse):
+                if response.status_code == "M_LIMIT_EXCEEDED":
+                    await sleep_ms(response.retry_after_ms)
+                else:
+                    return response
+            else:
+                return response
+
+    return wrapper
