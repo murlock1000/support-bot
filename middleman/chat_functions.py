@@ -3,9 +3,21 @@ from typing import Union
 
 from commonmark import commonmark
 # noinspection PyPackageRequirements
-from nio import SendRetryError, RoomSendResponse, RoomSendError, LocalProtocolError, AsyncClient
+from nio import (
+    SendRetryError,
+    RoomSendResponse,
+    RoomSendError,
+    LocalProtocolError,
+    AsyncClient,
+    RoomCreateResponse,
+    RoomCreateError,
+    RoomPreset,
+    RoomVisibility,
+    RoomInviteError,
+    RoomInviteResponse
+    )
 
-from middleman.utils import get_room_id
+from middleman.utils import get_room_id, with_ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -185,3 +197,44 @@ async def send_media_to_room(
     except (LocalProtocolError, SendRetryError) as ex:
         logger.exception(f"Unable to send media response to {room_id}")
         return f"Failed to send media: {ex}"
+
+async def create_private_room(
+        client: AsyncClient, mxid: str, roomname: str
+    ) -> Union[RoomCreateResponse, RoomCreateError]:
+
+        """
+        :param mxid: user id to create a DM for
+        :param roomname: The DM room name
+        :return: the Room Response from room_create()
+        """
+        resp = await with_ratelimit(client.room_create)(
+                visibility=RoomVisibility.private,
+                name=roomname,
+                is_direct=True,
+                preset=RoomPreset.private_chat,
+                invite={mxid},
+            )
+        if isinstance(resp, RoomCreateResponse):
+            logger.debug(f"Created a new DM for user {mxid} with roomID: {resp.room_id}")
+        elif isinstance(resp, RoomCreateError):
+            logger.exception(f"Failed to create a new DM for user {mxid} with error: {resp.status_code}")
+        return resp
+    
+async def invite_to_room(
+        client: AsyncClient, mxid: str, room_id: str
+    ) -> Union[RoomInviteResponse, RoomInviteError]:
+
+        """
+        :param mxid: user id to invite
+        :param roomname: The room name
+        :return: the Room Response from room_create()
+        """
+        resp = await with_ratelimit(client.room_invite)(
+                room_id=room_id,
+                user_id=mxid,
+            )
+        if isinstance(resp, RoomInviteResponse):
+            logger.debug(f"Invited user {mxid} to room: {room_id}")
+        elif isinstance(resp, RoomInviteError):
+            logger.exception(f"Failed to invite user {mxid} to room {room_id} with error: {resp.status_code}")
+        return resp

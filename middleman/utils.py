@@ -1,5 +1,5 @@
 import asyncio
-from logging import Logger
+import logging
 import re
 import time
 
@@ -7,7 +7,7 @@ from typing import Optional, List
 
 # noinspection PyPackageRequirements
 import nio
-
+logger = logging.getLogger(__name__)
 
 # Domain part from https://stackoverflow.com/a/106223/1489738
 USER_ID_REGEX = r"@[a-z0-9_=\/\-\.]*:(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9]" \
@@ -68,7 +68,7 @@ def get_reply_msg(event: nio.Event, reply_to: Optional[str], replaces: Optional[
                 return reply_section
 
 
-async def get_room_id(client: nio.AsyncClient, room: str, logger: Logger) -> str:
+async def get_room_id(client: nio.AsyncClient, room: str, logger: logging.Logger) -> str:
     if room.startswith("#"):
         response = await client.room_resolve_alias(room)
         if getattr(response, "room_id", None):
@@ -96,7 +96,9 @@ def with_ratelimit(func):
     """
     async def wrapper(*args, **kwargs):
         while True:
+            logger.debug(f"waiting for response")
             response = await func(*args, **kwargs)
+            logger.debug(f"Response: {response}")
             if isinstance(response, nio.ErrorResponse):
                 if response.status_code == "M_LIMIT_EXCEEDED":
                     await sleep_ms(response.retry_after_ms)

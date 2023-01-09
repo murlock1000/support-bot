@@ -1,10 +1,10 @@
 import logging
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse
+from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse
 
 from middleman import commands_help
-from middleman.chat_functions import send_text_to_room
+from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room
 from middleman.utils import get_replaces
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,8 @@ class Command(object):
             await self._show_help()
         elif self.command.startswith("message"):
             await self._message()
+        elif self.command.startswith("claim"):
+            await self._claim()
         else:
             await self._unknown_command()
 
@@ -124,3 +126,35 @@ class Command(object):
         await send_text_to_room(
             self.client, self.room.room_id, f"Failed to deliver message to {room}! Error: {error_message}",
         )
+
+    async def _claim(self):
+            """
+            Staff claim a ticket.
+            """
+            if self.room.room_id != self.config.management_room_id:
+                # Only allow claiming from the management room by staff
+                return
+
+            if len(self.args) < 1:
+                await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIM)
+                return
+
+            # Request a Ticket reply room to be created.
+            room = self.args[0]
+            response = await create_private_room(self.client, self.event.sender, "Ticket #3")
+            if isinstance(response, RoomCreateResponse):
+                logger.debug(f"Created a room successfully")
+                room = response.room_id
+            else:
+                logger.debug("failed to create a room")
+                return
+
+            # Additionally invite admin to the reply room
+            # logger.debug(f"Inviting admin to room")
+            # response = await invite_to_room(self.client, "@usr:server", room)
+            # if isinstance(response, RoomInviteResponse):
+            #     logger.debug(f"Invited Admin to Created room successfully")
+            # else:
+            #     logger.debug(f"failed to invite admin to room:{response}")
+            #     return
+            # return

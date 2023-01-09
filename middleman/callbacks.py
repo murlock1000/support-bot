@@ -107,9 +107,9 @@ class Callbacks(object):
         # Ignore if it was not us joining the room
         if event.sender != self.client.user:
             return
-
+        logger.debug(event)
         # Ignore if we didn't join
-        if event.membership != "join" or event.prev_content.get("membership") == "join":
+        if event.membership != "join" or event.prev_content is None or event.prev_content.get("membership") == "join":
             return
 
         # Send welcome message if configured
