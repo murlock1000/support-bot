@@ -11,7 +11,12 @@ from middleman.bot_commands import Command
 from middleman.chat_functions import send_text_to_room
 from middleman.media_responses import Media
 from middleman.message_responses import Message
+from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.utils import with_ratelimit
+
+from middleman.models.Ticket import Ticket
+from middleman.models.User import User
+from middleman.models.Staff import Staff
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +116,14 @@ class Callbacks(object):
         # Ignore if we didn't join
         if event.membership != "join" or event.prev_content is None or event.prev_content.get("membership") == "join":
             return
+
+        # Get the user who invited the bot
+        room_creator = User(self.store, room.creator)
+        logger.debug(f"Support bot invited by: {room_creator.user_id}")
+
+        # Update User Communication room id
+        room_creator.update_communications_room(room.room_id)
+        logger.debug(f"Set new communications room for user to: {room_creator.user_id}")
 
         # Send welcome message if configured
         if self.config.welcome_message and room.is_group:

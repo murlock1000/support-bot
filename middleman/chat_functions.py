@@ -219,7 +219,23 @@ async def create_private_room(
         elif isinstance(resp, RoomCreateError):
             logger.exception(f"Failed to create a new DM for user {mxid} with error: {resp.status_code}")
         return resp
-    
+
+
+async def create_room(
+        client: AsyncClient, roomname: str
+) -> Union[RoomCreateResponse, RoomCreateError]:
+    """
+    :param roomname: The room name
+    :return: the Room Response from room_create()
+    """
+    resp = await with_ratelimit(client.room_create)(
+        name=roomname,
+    )
+    if isinstance(resp, RoomCreateResponse):
+        logger.debug(f"Created a new room with roomID: {resp.room_id}")
+    elif isinstance(resp, RoomCreateError):
+        logger.exception(f"Failed to create a new room with error: {resp.status_code}")
+    return resp
 async def invite_to_room(
         client: AsyncClient, mxid: str, room_id: str
     ) -> Union[RoomInviteResponse, RoomInviteError]:

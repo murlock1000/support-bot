@@ -21,6 +21,7 @@ def migrate(store):
         store._execute("""
             CREATE TABLE IF NOT EXISTS Users (
   user_id VARCHAR(80) NOT NULL,
+  room_id VARCHAR(80) NULL,
   PRIMARY KEY (user_id))
         """)
         store._execute("""
@@ -30,10 +31,11 @@ def migrate(store):
         """)
         store._execute("""
             CREATE TABLE IF NOT EXISTS Tickets (
-  id INT NOT NULL,
+  id SERIAL NOT NULL,
   user_id VARCHAR(80) NOT NULL,
   user_room_id VARCHAR(80) NULL,
-  status VARCHAR(100) NULL,
+  status VARCHAR(100) NULL DEFAULT 'open',
+  ticket_name VARCHAR(100) NULL,
   PRIMARY KEY (id),
   CONSTRAINT fk_Tickets_Users_user_id
     FOREIGN KEY (user_id)
@@ -94,6 +96,7 @@ def migrate(store):
         store._execute("""
                   CREATE TABLE IF NOT EXISTS `Users` (
         `user_id` VARCHAR(80) NOT NULL,
+        `room_id` VARCHAR(80) NULL,
         PRIMARY KEY (`user_id`))
               """)
 
@@ -108,7 +111,8 @@ def migrate(store):
         `id` INT NOT NULL,
         `user_id` VARCHAR(80) NOT NULL,
         `user_room_id` VARCHAR(80) NULL,
-        `status` VARCHAR(100) NULL,
+        `status` VARCHAR(100) NULL DEFAULT 'open',
+        `ticket_name` VARCHAR(100) NULL,
         PRIMARY KEY (`id`),
         CONSTRAINT `fk_Tickets_Users_user_id`
           FOREIGN KEY (`user_id`)

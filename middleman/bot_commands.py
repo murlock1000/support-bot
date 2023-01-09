@@ -5,6 +5,10 @@ from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse
 
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room
+from middleman.models.Repositories.TicketRepository import TicketStatus
+from middleman.models.Staff import Staff
+from middleman.models.Ticket import Ticket
+from middleman.models.User import User
 from middleman.utils import get_replaces
 
 logger = logging.getLogger(__name__)
@@ -45,6 +49,8 @@ class Command(object):
             await self._message()
         elif self.command.startswith("claim"):
             await self._claim()
+        elif self.command.startswith("raise"):
+            await self._raise_ticket()
         else:
             await self._unknown_command()
 
@@ -127,34 +133,81 @@ class Command(object):
             self.client, self.room.room_id, f"Failed to deliver message to {room}! Error: {error_message}",
         )
 
+    async def _raise_ticket(self):
+        """
+        Staff raise a ticket for a user.
+        """
+        if self.room.room_id != self.config.management_room_id:
+            # Only allow raising new tickets from the management room by staff
+            return
+
+        if len(self.args) < 2:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_RAISE)
+            return
+
+        user = self.args[0]
+        # Remove the command
+        text = self.command[7:]
+        # Remove the user_id
+        text = text.replace(user, "", 1)
+        # Strip the leading spaces
+        text = text.strip()
+
+        # Find/Create User by user_id
+        # TODO: creating a user here - the user will have an empty communications room
+        user = User(self.store, user)
+
+        try:
+            # Raise a new ticket
+            ticket = Ticket(self.store, self.client, user_id=user.user_id, ticket_name=text)
+
+            # Create a room for this ticket
+            ticket.ticket_room_id = await ticket.create_ticket_room()
+
+            # Get staff who raised the ticket
+            staff = Staff(self.store, self.event.sender)
+
+            # Claim Ticket for the staff
+            await ticket.claim_ticket(staff.user_id)
+        except Exception as response:
+            logger.error(f"Failed to raise a ticket with error: {response}")
+
+            # Send error message back to room
+            error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to raise Ticket:  {user}-({text})!  Error: {error_message}",
+            )
+            return
+
+        if ticket.status == TicketStatus.OPEN:
+            text = f"{ticket.status} ticket with id:{ticket.id} has been raised for {ticket.user_id} wit chat room {ticket.user_room_id}"
+
+
     async def _claim(self):
-            """
-            Staff claim a ticket.
-            """
-            if self.room.room_id != self.config.management_room_id:
-                # Only allow claiming from the management room by staff
-                return
+        """
+        Staff claim a ticket.
+        """
+        if self.room.room_id != self.config.management_room_id:
+            # Only allow claiming from the management room by staff
+            return
 
-            if len(self.args) < 1:
-                await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIM)
-                return
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIM)
+            return
 
-            # Request a Ticket reply room to be created.
-            room = self.args[0]
-            response = await create_private_room(self.client, self.event.sender, "Ticket #3")
-            if isinstance(response, RoomCreateResponse):
-                logger.debug(f"Created a room successfully")
-                room = response.room_id
-            else:
-                logger.debug("failed to create a room")
-                return
+        ticket_id = self.args[0]
 
-            # Additionally invite admin to the reply room
-            # logger.debug(f"Inviting admin to room")
-            # response = await invite_to_room(self.client, "@usr:server", room)
-            # if isinstance(response, RoomInviteResponse):
-            #     logger.debug(f"Invited Admin to Created room successfully")
-            # else:
-            #     logger.debug(f"failed to invite admin to room:{response}")
-            #     return
-            # return
+        try:
+            # Get ticket by id
+            ticket = Ticket(self.store, self.client, ticket_id=int(ticket_id))
+        except Exception as response:
+            logger.error(f"Failed to get ticket with error: {response}")
+
+            # Send error message back to room
+            error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to claim Ticket ({ticket_id})!  Error: {error_message}",
+            )
+            return
+
+        logger.debug(f"Joined {ticket.status} ticket with id:{ticket.id} has been raised by {ticket.user_id}")

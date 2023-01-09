@@ -7,11 +7,20 @@ For example:
 `!message #foobar:domain.tld Hello people in the Foobar room.`
 """
 
-COMMAND_CLAIM = """Claim the ticket belonging to a room using the bot. Usage:
+COMMAND_CLAIM = """Claim the ticket with specified index. Usage:
 
-`!claim <room ID or alias>`
+`!claim <Ticket index>`
 
 For example:
 
-`!claim #foobar:domain.tld`
+`!claim 5`
+"""
+
+COMMAND_RAISE = """Raise a ticket for a user with a specified name. Usage:
+
+`!raise <user id> <ticket name>`
+
+For example:
+
+`!claim @test:server.com Important issue`
 """
