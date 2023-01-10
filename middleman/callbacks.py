@@ -1,6 +1,6 @@
 import json
 import logging
-
+import re
 # noinspection PyPackageRequirements
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 DUPLICATES_CACHE_SIZE = 1000
 
+ticket_name_pattern = re.compile(r"Ticket #(\d+) \(.+\)")
 
 class Callbacks(object):
     def __init__(self, client, store, config):
@@ -39,6 +40,7 @@ class Callbacks(object):
         self.command_prefix = config.command_prefix
         self.received_events = []
         self.welcome_message_sent_to_room = []
+        self.open_tickets = {}
 
     async def decrypted_callback(self, room_id: str, event: RoomMessageText):
         if isinstance(event, RoomMessageText):
@@ -171,6 +173,58 @@ class Callbacks(object):
         # If this looks like an edit, strip the edit prefix
         if msg.startswith(" * "):
             msg = msg[3:]
+
+        # TODO: Initial implementation must be divided into methods - too many layers of logic
+        # Check if this is a ticket room
+        is_open_ticket_room = False
+        ticket = None
+        match = None
+        if room.name:
+            match = ticket_name_pattern.match(room.name)
+        if match:
+            ticket_id = match[1] # Get the id from regex group
+            if ticket_id and ticket_id.isnumeric():
+                ticket_id = int(ticket_id)
+                if ticket_id in self.open_tickets: # Check cache
+                    ticket = self.open_tickets[ticket_id]
+                    if ticket.ticket_room_id == room.room_id:
+                        is_open_ticket_room = True
+                    else:
+                        logger.debug(f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
+                else:
+                    try:
+                        ticket = Ticket(self.store, self.client, ticket_id=ticket_id)
+                        if ticket.ticket_room_id == room.room_id:
+                            if ticket.status != TicketStatus.CLOSED:
+                                self.open_tickets[ticket_id] = ticket
+                                is_open_ticket_room = True
+                            else:
+                                logger.debug(f"Ticket #{ticket_id} is closed, won't forward message to user")
+                        else:
+                            logger.debug(
+                                f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
+                    except Exception as response:
+                        # TODO: put this in a common method handle_ticket_error()
+                        logger.error(f"Failed to get ticket with error: {response}")
+
+                        # Send error message back to room
+                        error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
+                        await send_text_to_room(
+                            self.client, room.room_id,
+                            f"Failed to fetch Ticket with id #{ticket_id}!  Error: {error_message}",
+                        )
+                        return
+
+        if is_open_ticket_room:
+            logger.debug(
+                f"Bot message received for Ticket #{ticket.id} in room {room.display_name} | "
+                f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
+                f"alias: {room.canonical_alias}): {msg}"
+            )
+            # General message listener for ticket room message relaying
+            message = Message(self.client, self.store, self.config, msg, room, event, ticket)
+            await message.process()
+            return
 
         logger.debug(
             f"Bot message received for room {room.display_name} | "

@@ -180,7 +180,7 @@ class Command(object):
             return
 
         if ticket.status == TicketStatus.OPEN:
-            text = f"{ticket.status} ticket with id:{ticket.id} has been raised for {ticket.user_id} wit chat room {ticket.user_room_id}"
+            text = f"{ticket.status} ticket with id:{ticket.id} has been raised for {ticket.user_id} wit chat room {ticket.ticket_room_id}"
 
 
     async def _claim(self):

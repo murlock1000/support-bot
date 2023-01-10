@@ -5,13 +5,15 @@ from typing import List
 from nio import RoomSendResponse, RoomSendError
 
 from middleman.chat_functions import send_reaction, send_text_to_room
+from middleman.models.Ticket import Ticket
+from middleman.models.User import User
 from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg
 
 logger = logging.getLogger(__name__)
 
 
 class Message(object):
-    def __init__(self, client, store, config, message_content, room, event):
+    def __init__(self, client, store, config, message_content, room, event, ticket:Ticket=None):
         """Initialize a new Message
 
         Args:
@@ -33,6 +35,7 @@ class Message(object):
         self.message_content = message_content
         self.room = room
         self.event = event
+        self.ticket = ticket
 
     async def handle_management_room_message(self):
         reply_to = get_in_reply_to(self.event)
@@ -167,8 +170,40 @@ class Message(object):
         """
         if self.room.room_id == self.config.management_room_id:
             await self.handle_management_room_message()
+        elif self.ticket:
+            await self.handle_ticket_room_message()
         else:
             await self.relay_to_management_room()
+
+    def anonymise_text(self, anonymise=True):
+        if anonymise:
+            text = f"anonymous: <i>{self.message_content}</i>".replace("\n", "  \n")
+        else:
+            text = f"{self.event.sender} in {self.room.display_name} (`{self.room.room_id}`): " \
+                   f"{self.message_content}".replace("\n", "  \n")
+        return text
+
+    async def handle_message_send(self, text, room):
+        response = await send_text_to_room(self.client, room, text, False)
+        if type(response) == RoomSendResponse and response.event_id:
+            self.store.store_message(
+                self.event.event_id,
+                response.event_id,
+                self.room.room_id,
+            )
+            logger.info("Message %s relayed to the management room", self.event.event_id)
+        else:
+            logger.error("Failed to relay message %s to the management room", self.event.event_id)
+    async def handle_ticket_room_message(self):
+        """Relay staff Ticket message to the client communications room."""
+
+        text = self.anonymise_text()
+        #TODO Handle user fetching
+        user = User(self.store, self.ticket.user_id)
+        if not user.room_id:
+            logger.debug("Error fetching room id of user")
+            return
+        await self.handle_message_send(text, user.room_id)
 
     async def relay_to_management_room(self):
         """Relay to the management room."""
@@ -184,18 +219,11 @@ class Message(object):
             logger.info("Room %s marked as mentions only and we have been mentioned, so relaying %s",
                         self.room.room_id, self.event.event_id)
 
-        if self.config.anonymise_senders:
-            text = f"anonymous: <i>{self.message_content}</i>".replace("\n", "  \n")
-        else:
-            text = f"{self.event.sender} in {self.room.display_name} (`{self.room.room_id}`): " \
-                   f"{self.message_content}".replace("\n", "  \n")
-        response = await send_text_to_room(self.client, self.config.management_room, text, False)
-        if type(response) == RoomSendResponse and response.event_id:
-            self.store.store_message(
-                self.event.event_id,
-                response.event_id,
-                self.room.room_id,
-            )
-            logger.info("Message %s relayed to the management room", self.event.event_id)
-        else:
-            logger.error("Failed to relay message %s to the management room", self.event.event_id)
+
+        # TODO: Find better way to update communications channel
+        user = User(self.store, self.event.sender)
+        if user.room_id != self.room.room_id:
+            user.update_communications_room(self.room.room_id)
+
+        text = self.anonymise_text(self.config.anonymise_senders)
+        await self.handle_message_send(text, self.config.management_room)

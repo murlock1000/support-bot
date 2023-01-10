@@ -29,3 +29,5 @@ class UserRepository(object):
         self.storage._execute("""
             SELECT room_id FROM Users WHERE user_id=?
         """, (user_id,))
+        room_id = self.storage.cursor.fetchone()[0]
+        return room_id

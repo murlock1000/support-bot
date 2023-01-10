@@ -50,11 +50,11 @@ class Ticket(object):
             # Fetch existing fields of Ticket
             fields = self.ticketRep.get_all_fields(self.id)
 
-            self.id = fields.id
-            self.user_id = fields.user_id
-            self.ticket_room_id = fields.user_room_id
-            self.status = fields.status
-            self.ticket_name = fields.ticket_nameticket
+            self.id =               fields['id']
+            self.user_id =          fields['user_id']
+            self.ticket_room_id =   fields['ticket_room_id']
+            self.status =           fields['status']
+            self.ticket_name =      fields['ticket_name']
 
     async def create_ticket_room(self):
         # Request a Ticket reply room to be created.
@@ -62,6 +62,8 @@ class Ticket(object):
 
         if isinstance(response, RoomCreateResponse):
             logger.debug(f"Created a Ticket room {response.room_id} successfully for ticket id {self.id}")
+            self.ticket_room_id = response.room_id
+            self.ticketRep.set_ticket_room_id(self.id, self.ticket_room_id)
             return response.room_id
         else:
             logger.debug(f"failed to create a room for ticket id {self.id}")

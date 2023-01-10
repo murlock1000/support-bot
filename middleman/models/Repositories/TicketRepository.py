@@ -69,6 +69,16 @@ class TicketRepository(object):
             SELECT ticket_name FROM Tickets WHERE id=?
         """, (ticket_id,))
 
+    def set_ticket_room_id(self, ticket_id:int, ticket_room_id:str):
+        self.storage._execute("""
+            UPDATE Tickets SET user_room_id= ? WHERE id=?
+        """, (ticket_room_id, ticket_id))
+
+    def get_ticket_room_id(self, ticket_id: int):
+        self.storage._execute("""
+            SELECT user_room_id FROM Tickets WHERE id=?
+        """, (ticket_id,))
+
     def get_all_fields(self, ticket_id:int):
         self.storage._execute("""
             select id, user_id, user_room_id, status, ticket_name from Tickets where id = ?;
@@ -78,7 +88,7 @@ class TicketRepository(object):
         return {
                 "id": row[0],
                 "user_id": row[1],
-                "user_room_id": row[2],
+                "ticket_room_id": row[2],
                 "status": row[3],
                 "ticket_name": row[4],
             }
