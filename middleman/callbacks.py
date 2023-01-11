@@ -39,7 +39,6 @@ class Callbacks(object):
         self.command_prefix = config.command_prefix
         self.received_events = []
         self.welcome_message_sent_to_room = []
-        self.open_tickets = {}
 
     async def decrypted_callback(self, room_id: str, event: RoomMessageText):
         if isinstance(event, RoomMessageText):
@@ -145,53 +144,6 @@ class Callbacks(object):
             True,
         )
 
-    def find_room_ticket_id(self, room:MatrixRoom):
-        match = None
-        if room.name:
-            match = ticket_name_pattern.match(room.name)
-
-        ticket_id = None
-        if match:
-            ticket_id = match[1]  # Get the id from regex group
-
-        if ticket_id and ticket_id.isnumeric():
-            return int(ticket_id)
-
-
-    async def find_ticket_of_room(self, room:MatrixRoom):
-        is_open_ticket_room = False
-        ticket = None
-
-        ticket_id = self.find_room_ticket_id(room)
-        if not ticket_id:
-            return None
-
-        should_add_to_cache = False
-        if ticket_id in self.open_tickets: # Check cache
-            ticket = self.open_tickets[ticket_id]
-            should_add_to_cache = True
-        else:
-            try:
-                ticket = Ticket(self.store, self.client, ticket_id=ticket_id)
-            except Response as response:
-                error_message = response if type(response == str) else getattr(response, "message",
-                                                                               "Unknown error")
-                await send_text_to_room(
-                    self.client, room.room_id,
-                    f"Failed to fetch Ticket of room with ticket id #{ticket_id}!  Error: {error_message}",
-                )
-                return None
-
-        if ticket.ticket_room_id == room.room_id:
-            if should_add_to_cache and ticket.status != TicketStatus.CLOSED:
-                self.open_tickets[ticket_id] = ticket
-            return ticket
-        else:
-            logger.warning(
-                f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
-
-            return None
-
     async def message(self, room, event):
         """Callback for when a message event is received
 
@@ -220,9 +172,8 @@ class Callbacks(object):
         if msg.startswith(" * "):
             msg = msg[3:]
 
-        # TODO: Initial implementation must be divided into methods - too many layers of logic
         # Check if this is a ticket room
-        ticket = await self.find_ticket_of_room(room)
+        ticket = await Ticket.find_ticket_of_room(self.store, self.client, room)
 
         if ticket:
             if ticket.status != TicketStatus.CLOSED:

@@ -180,6 +180,7 @@ class Command(object):
             return
 
         if ticket.status == TicketStatus.OPEN:
+            user.update_current_ticket_id(ticket.id)
             text = f"{ticket.status} ticket with id:{ticket.id} has been raised for {ticket.user_id} wit chat room {ticket.ticket_room_id}"
 
 

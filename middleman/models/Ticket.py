@@ -1,6 +1,6 @@
-from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse
+from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse, MatrixRoom, Response
 
-from middleman.chat_functions import create_private_room, invite_to_room, create_room
+from middleman.chat_functions import create_private_room, invite_to_room, create_room, send_text_to_room
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.storage import Storage
@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 ticket_name_pattern = re.compile(r"Ticket #(\d+) \(.+\)")
 
 class Ticket(object):
+
+    ticket_cache = {}
+    open_tickets = {}
+
     def __init__(self, storage:Storage, client:AsyncClient, ticket_id:int=None, user_id:str=None, ticket_name:str=None, ticket_room_id:str=None):
         # Setup Storage bindings
         self.storage = storage
@@ -49,7 +53,7 @@ class Ticket(object):
                 self.status = TicketStatus.OPEN
 
             else:
-                raise ValueError("ID of existing ticket not found and user_id/ticket_room_id not specified for new Ticket")
+                raise ValueError(f"ID of existing ticket not found and user_id/ticket_room_id not specified for new Ticket")
         else:
             # Fetch existing fields of Ticket
             fields = self.ticketRep.get_all_fields(self.id)
@@ -59,6 +63,64 @@ class Ticket(object):
             self.ticket_room_id =   fields['ticket_room_id']
             self.status =           fields['status']
             self.ticket_name =      fields['ticket_name']
+
+    @staticmethod
+    def fetch_ticket_by_id(store, client, ticket_id:int):
+        try:
+            # Try to find a ticket by id
+            ticket = Ticket(store, client, ticket_id=ticket_id)
+        except IndexError as index_error:
+            logger.debug(f"{index_error.args[0]}")
+            return None
+        return ticket
+
+    @staticmethod
+    def find_room_ticket_id(room:MatrixRoom):
+        match = None
+        if room.name:
+            match = ticket_name_pattern.match(room.name)
+
+        ticket_id = None
+        if match:
+            ticket_id = match[1]  # Get the id from regex group
+
+        if ticket_id and ticket_id.isnumeric():
+            return int(ticket_id)
+
+    @staticmethod
+    async def find_ticket_of_room(store, client, room:MatrixRoom):
+        is_open_ticket_room = False
+        ticket = None
+
+        ticket_id = Ticket.find_room_ticket_id(room)
+        if not ticket_id:
+            return None
+
+        should_add_to_cache = False
+        if ticket_id in Ticket.open_tickets: # Check cache
+            ticket = Ticket.open_tickets[ticket_id]
+            should_add_to_cache = True
+        else:
+            try:
+                ticket = Ticket(store, client, ticket_id=ticket_id)
+            except Response as response:
+                error_message = response if type(response == str) else getattr(response, "message",
+                                                                               "Unknown error")
+                await send_text_to_room(
+                    client, room.room_id,
+                    f"Failed to fetch Ticket of room with ticket id #{ticket_id}!  Error: {error_message}",
+                )
+                return None
+
+        if ticket.ticket_room_id == room.room_id:
+            if should_add_to_cache and ticket.status != TicketStatus.CLOSED:
+                Ticket.open_tickets[ticket_id] = ticket
+            return ticket
+        else:
+            logger.warning(
+                f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
+
+            return None
 
     async def create_ticket_room(self):
         # Request a Ticket reply room to be created.

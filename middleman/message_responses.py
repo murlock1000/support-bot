@@ -226,4 +226,10 @@ class Message(object):
             user.update_communications_room(self.room.room_id)
 
         text = self.anonymise_text(self.config.anonymise_senders)
-        await self.handle_message_send(text, self.config.management_room)
+
+        ticket = Ticket.fetch_ticket_by_id(self.store, self.client, user.current_ticket_id)
+
+        if ticket:
+            await self.handle_message_send(text, ticket.ticket_room_id)
+        else:
+            await self.handle_message_send(text, self.config.management_room)

@@ -31,3 +31,27 @@ class UserRepository(object):
         """, (user_id,))
         room_id = self.storage.cursor.fetchone()[0]
         return room_id
+
+    def set_user_current_ticket_id(self, user_id:str, current_ticket_id:str):
+        self.storage._execute("""
+            UPDATE Users SET current_ticket_id= ? WHERE user_id=?
+        """, (current_ticket_id, user_id))
+
+    def get_user_current_ticket_id(self, user_id: str):
+        self.storage._execute("""
+            SELECT current_ticket_id FROM Users WHERE user_id=?
+        """, (user_id,))
+        current_ticket_id = self.storage.cursor.fetchone()[0]
+        return current_ticket_id
+
+    def get_all_fields(self, user_id:int):
+        self.storage._execute("""
+            select user_id, room_id, current_ticket_id from Users where user_id = ?;
+        """, (user_id,))
+        row = self.storage.cursor.fetchone()
+
+        return {
+                "user_id": row[0],
+                "room_id": row[1],
+                "current_ticket_id": row[2],
+            }
