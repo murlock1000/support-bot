@@ -4,7 +4,7 @@ import re
 # noinspection PyPackageRequirements
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
-    RoomKeyRequestError, RoomMemberEvent,
+    RoomKeyRequestError, RoomMemberEvent, Response,
 )
 
 from middleman.bot_commands import Command
@@ -14,7 +14,7 @@ from middleman.message_responses import Message
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.utils import with_ratelimit
 
-from middleman.models.Ticket import Ticket
+from middleman.models.Ticket import Ticket, ticket_name_pattern
 from middleman.models.User import User
 from middleman.models.Staff import Staff
 
@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 DUPLICATES_CACHE_SIZE = 1000
 
-ticket_name_pattern = re.compile(r"Ticket #(\d+) \(.+\)")
 
 class Callbacks(object):
     def __init__(self, client, store, config):
@@ -146,6 +145,53 @@ class Callbacks(object):
             True,
         )
 
+    def find_room_ticket_id(self, room:MatrixRoom):
+        match = None
+        if room.name:
+            match = ticket_name_pattern.match(room.name)
+
+        ticket_id = None
+        if match:
+            ticket_id = match[1]  # Get the id from regex group
+
+        if ticket_id and ticket_id.isnumeric():
+            return int(ticket_id)
+
+
+    async def find_ticket_of_room(self, room:MatrixRoom):
+        is_open_ticket_room = False
+        ticket = None
+
+        ticket_id = self.find_room_ticket_id(room)
+        if not ticket_id:
+            return None
+
+        should_add_to_cache = False
+        if ticket_id in self.open_tickets: # Check cache
+            ticket = self.open_tickets[ticket_id]
+            should_add_to_cache = True
+        else:
+            try:
+                ticket = Ticket(self.store, self.client, ticket_id=ticket_id)
+            except Response as response:
+                error_message = response if type(response == str) else getattr(response, "message",
+                                                                               "Unknown error")
+                await send_text_to_room(
+                    self.client, room.room_id,
+                    f"Failed to fetch Ticket of room with ticket id #{ticket_id}!  Error: {error_message}",
+                )
+                return None
+
+        if ticket.ticket_room_id == room.room_id:
+            if should_add_to_cache and ticket.status != TicketStatus.CLOSED:
+                self.open_tickets[ticket_id] = ticket
+            return ticket
+        else:
+            logger.warning(
+                f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
+
+            return None
+
     async def message(self, room, event):
         """Callback for when a message event is received
 
@@ -176,54 +222,20 @@ class Callbacks(object):
 
         # TODO: Initial implementation must be divided into methods - too many layers of logic
         # Check if this is a ticket room
-        is_open_ticket_room = False
-        ticket = None
-        match = None
-        if room.name:
-            match = ticket_name_pattern.match(room.name)
-        if match:
-            ticket_id = match[1] # Get the id from regex group
-            if ticket_id and ticket_id.isnumeric():
-                ticket_id = int(ticket_id)
-                if ticket_id in self.open_tickets: # Check cache
-                    ticket = self.open_tickets[ticket_id]
-                    if ticket.ticket_room_id == room.room_id:
-                        is_open_ticket_room = True
-                    else:
-                        logger.debug(f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
-                else:
-                    try:
-                        ticket = Ticket(self.store, self.client, ticket_id=ticket_id)
-                        if ticket.ticket_room_id == room.room_id:
-                            if ticket.status != TicketStatus.CLOSED:
-                                self.open_tickets[ticket_id] = ticket
-                                is_open_ticket_room = True
-                            else:
-                                logger.debug(f"Ticket #{ticket_id} is closed, won't forward message to user")
-                        else:
-                            logger.debug(
-                                f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
-                    except Exception as response:
-                        # TODO: put this in a common method handle_ticket_error()
-                        logger.error(f"Failed to get ticket with error: {response}")
+        ticket = await self.find_ticket_of_room(room)
 
-                        # Send error message back to room
-                        error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
-                        await send_text_to_room(
-                            self.client, room.room_id,
-                            f"Failed to fetch Ticket with id #{ticket_id}!  Error: {error_message}",
-                        )
-                        return
-
-        if is_open_ticket_room:
-            logger.debug(
-                f"Bot message received for Ticket #{ticket.id} in room {room.display_name} | "
-                f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
-                f"alias: {room.canonical_alias}): {msg}"
-            )
-            # General message listener for ticket room message relaying
-            message = Message(self.client, self.store, self.config, msg, room, event, ticket)
-            await message.process()
+        if ticket:
+            if ticket.status != TicketStatus.CLOSED:
+                logger.debug(
+                    f"Bot message received for Ticket #{ticket.id} in room {room.display_name} | "
+                    f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
+                    f"alias: {room.canonical_alias}): {msg}"
+                )
+                # General message listener for ticket room message relaying
+                message = Message(self.client, self.store, self.config, msg, room, event, ticket)
+                await message.process()
+            else:
+                logger.warning(f"Ticket #{ticket.id} is closed, won't forward message to user")
             return
 
         logger.debug(

@@ -5,9 +5,13 @@ from middleman.models.Repositories.TicketRepository import TicketStatus, TicketR
 from middleman.models.Staff import Staff
 from middleman.storage import Storage
 import logging
+import re
 # Controller (External data)-> Service (Logic) -> Repository (sql queries)
 
 logger = logging.getLogger(__name__)
+
+
+ticket_name_pattern = re.compile(r"Ticket #(\d+) \(.+\)")
 
 class Ticket(object):
     def __init__(self, storage:Storage, client:AsyncClient, ticket_id:int=None, user_id:str=None, ticket_name:str=None, ticket_room_id:str=None):
