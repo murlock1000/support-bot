@@ -175,9 +175,9 @@ class Message(object):
         else:
             await self.relay_to_management_room()
 
-    def anonymise_text(self, anonymise=True):
+    def anonymise_text(self, anonymise):
         if anonymise:
-            text = f"anonymous: <i>{self.message_content}</i>".replace("\n", "  \n")
+            text = f"{self.message_content}".replace("\n", "  \n")
         else:
             text = f"{self.event.sender} in {self.room.display_name} (`{self.room.room_id}`): " \
                    f"{self.message_content}".replace("\n", "  \n")
@@ -197,7 +197,7 @@ class Message(object):
     async def handle_ticket_room_message(self):
         """Relay staff Ticket message to the client communications room."""
 
-        text = self.anonymise_text()
+        text = self.anonymise_text(True)
         #TODO Handle user fetching
         user = User(self.store, self.ticket.user_id)
         if not user.room_id:
@@ -225,11 +225,11 @@ class Message(object):
         if user.room_id != self.room.room_id:
             user.update_communications_room(self.room.room_id)
 
-        text = self.anonymise_text(self.config.anonymise_senders)
-
         ticket = Ticket.fetch_ticket_by_id(self.store, self.client, user.current_ticket_id)
 
         if ticket:
+            text = self.anonymise_text(True)
             await self.handle_message_send(text, ticket.ticket_room_id)
         else:
+            text = self.anonymise_text(self.config.anonymise_senders)
             await self.handle_message_send(text, self.config.management_room)

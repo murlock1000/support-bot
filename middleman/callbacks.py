@@ -248,6 +248,25 @@ class Callbacks(object):
         # Extract media info
         media_info = event.source.get("content").get("info")
 
+        # Check if this is a ticket room
+        ticket = await Ticket.find_ticket_of_room(self.store, self.client, room)
+
+        if ticket:
+            if ticket.status != TicketStatus.CLOSED:
+                logger.debug(
+                    f"Bot media received for Ticket #{ticket.id} in room {room.display_name} | "
+                    f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
+                    f"alias: {room.canonical_alias}): {body}"
+                )
+                # General media listener for ticket room message relaying
+                media = Media(
+                    self.client, self.store, self.config, msgtype, body, media_url, media_file, media_info, room, event, ticket,
+                )
+                await media.process()
+            else:
+                logger.warning(f"Ticket #{ticket.id} is closed, won't forward message to user")
+            return
+
         logger.debug(
             f"Bot media received for room {room.display_name} | "
             f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
