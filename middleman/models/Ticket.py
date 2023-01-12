@@ -163,5 +163,16 @@ class Ticket(object):
             f"Staff {staff_id} closed ticket {self.id}",
         )
 
+    async def reopen_ticket(self, staff_id:str):
+        # Reopen the ticket the room contains by changing status to OPEN
+        self.ticketRep.set_ticket_status(self.id, TicketStatus.OPEN.value)
+
+        # Inform about closed room
+        logger.debug(f"Staff {staff_id} reopened ticket {self.id}")
+        await send_text_to_room(
+            self.client, self.ticket_room_id,
+            f"Staff {staff_id} reopened ticket {self.id}",
+        )
+
     def find_user_current_ticket_id(self):
         return self.userRep.get_user_current_ticket_id(self.user_id)

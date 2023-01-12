@@ -5,6 +5,7 @@ from typing import List
 from nio import RoomSendResponse, RoomSendError
 
 from middleman.chat_functions import send_media_to_room, send_reaction, send_text_to_room
+from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
 from middleman.utils import get_in_reply_to
@@ -158,10 +159,10 @@ class Media(object):
         if text:
             response = await send_text_to_room(self.client, room_id, text, notice=True)
             sender_notify_event_id = response.event_id
-            if type(response) == RoomSendResponse and response.event_id:
+            if type(response) != RoomSendResponse or not response.event_id:
                 logger.error(f"Failed to relay {media_name[self.media_type]} %s to the "
                          f"management room", self.event.event_id)
-            return
+                return
 
         response = await send_media_to_room(
             self.client,
@@ -187,6 +188,16 @@ class Media(object):
 
     async def handle_ticket_room_media(self):
         """Relay staff Ticket message to the client communications room."""
+
+        if self.ticket.status == TicketStatus.CLOSED.value:
+            logger.debug(
+                f"Skipping message, since Ticket is closed. Reopen it first."
+            )
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Skipping message, since Ticket is closed. Reopen it first.",
+            )
+            return
 
         text = self.anonymise_text(True)
         user = User(self.store, self.ticket.user_id)

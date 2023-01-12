@@ -54,6 +54,8 @@ class Command(object):
             await self._raise_ticket()
         elif self.command.startswith("close"):
             await self._close_ticket()
+        elif self.command.startswith("reopen"):
+            await self._reopen_ticket()
         else:
             await self._unknown_command()
 
@@ -207,6 +209,33 @@ class Command(object):
             # Unassign user current ticket id if this was the one.
             if current_user_ticket_id == ticket.id:
                 ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+
+    async def _reopen_ticket(self):
+        """
+        Staff reopen the current ticket.
+        """
+
+        try:
+            staff = Staff(self.store, self.event.sender, False)
+        except IndexError:
+            logger.warning(f"Non member user {self.event.sender} tried reopening ticket")
+            return
+
+        ticket = await Ticket.find_ticket_of_room(self.store, self.client, self.room)
+        if not ticket:
+            logger.warning(f"Could not find Ticket room {self.room.room_id} to close")
+        else:
+            if ticket.status == TicketStatus.CLOSED:
+                logger.debug(f"Ticket already open")
+                await send_text_to_room(
+                    self.client, ticket.ticket_room_id,
+                    f"Ticket already open",
+                )
+            else:
+                await ticket.reopen_ticket(staff.user_id)
+
+                # assign this ticket as the users current ticket id
+                ticket.userRep.set_user_current_ticket_id(ticket.user_id, ticket.id)
 
     async def _claim(self):
         """

@@ -5,6 +5,7 @@ from typing import List
 from nio import RoomSendResponse, RoomSendError
 
 from middleman.chat_functions import send_reaction, send_text_to_room
+from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
 from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg
@@ -197,6 +198,15 @@ class Message(object):
     async def handle_ticket_room_message(self):
         """Relay staff Ticket message to the client communications room."""
 
+        if self.ticket.status == TicketStatus.CLOSED.value:
+            logger.debug(
+                f"Skipping message, since Ticket is closed. Reopen it first."
+            )
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Skipping message, since Ticket is closed. Reopen it first.",
+            )
+            return
         text = self.anonymise_text(True)
         #TODO Handle user fetching
         user = User(self.store, self.ticket.user_id)
