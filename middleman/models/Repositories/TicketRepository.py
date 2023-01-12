@@ -34,10 +34,10 @@ class TicketRepository(object):
         """, (ticket_id, staff_id,))
     
     def get_assigned_staff(self, ticket_id:int):
-        self._execute("""
+        self.storage._execute("""
             SELECT staff_id FROM TicketsStaffRelation WHERE ticket_id = ?;
         """, (ticket_id,))
-        staff = self.cursor.fetchall()
+        staff = self.storage.cursor.fetchall()
         return [
             {
                 "user_id": row[0],
@@ -92,3 +92,17 @@ class TicketRepository(object):
                 "status": row[3],
                 "ticket_name": row[4],
             }
+
+    def get_open_tickets(self):
+        self.storage._execute("""
+            SELECT id, user_id, ticket_name FROM Tickets WHERE status=?
+        """, (TicketStatus.OPEN.value,))
+
+        tickets = self.storage.cursor.fetchall()
+        return [
+            {
+                'id':ticket[0],
+                'user_id': ticket[1],
+                'ticket_name' : ticket[2]
+            } for ticket in tickets
+        ]

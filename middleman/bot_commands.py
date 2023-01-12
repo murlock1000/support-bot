@@ -196,6 +196,9 @@ class Command(object):
 
             # Claim Ticket for the staff
             await ticket.claim_ticket(staff.user_id)
+
+            # Invite staff to Ticket room
+            await ticket.invite_to_ticket_room(staff.user_id)
         except Exception as response:
             logger.error(f"Failed to raise a ticket with error: {response}")
 
@@ -205,6 +208,10 @@ class Command(object):
                 self.client, self.room.room_id, f"Failed to raise Ticket:  {user}-({text})!  Error: {error_message}",
             )
             return
+
+        await send_text_to_room(
+            self.client, self.room.room_id, f"Raised Ticket #{ticket.id} {ticket.ticket_name} for {ticket.user_id}",
+        )
 
         if ticket.status == TicketStatus.OPEN:
             user.update_current_ticket_id(ticket.id)
