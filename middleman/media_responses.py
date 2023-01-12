@@ -215,7 +215,7 @@ class Media(object):
                          self.event.event_id, self.room.room_id)
             return
 
-        user = User(self.store, self.event.sender)
+        user = User(self.store, self.event.sender, True)
 
         if user.room_id != self.room.room_id:
             user.update_communications_room(self.room.room_id)

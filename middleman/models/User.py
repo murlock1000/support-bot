@@ -3,7 +3,7 @@ from middleman.storage import Storage
 
 # Controller (External data)-> Service (Logic) -> Repository (sql queries)
 class User(object):
-    def __init__(self, storage:Storage, user_id:str):        
+    def __init__(self, storage:Storage, user_id:str, new_user:bool=False):
         # Setup storage bindings
         self.storage = storage
         self.userRep:UserRepository = self.storage.repositories.userRep
@@ -13,9 +13,12 @@ class User(object):
         
         # Create User entry if not found in DB
         if not self.user_id:
-            self.user_id = self.userRep.create_user(user_id)
-            self.room_id = None
-            self.current_ticket_id = None
+            if new_user:
+                self.user_id = self.userRep.create_user(user_id)
+                self.room_id = None
+                self.current_ticket_id = None
+            else:
+                raise IndexError(f"User {user_id} not found")
         else:
             # Fetch existing fields of User
             fields = self.userRep.get_all_fields(self.user_id)

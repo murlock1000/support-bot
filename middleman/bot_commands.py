@@ -58,6 +58,8 @@ class Command(object):
             await self._reopen_ticket()
         elif self.command.startswith("listopentickets"):
             await self._list_open_tickets()
+        elif self.command.startswith("activeticket"):
+            await self._show_active_user_ticket()
         else:
             await self._unknown_command()
 
@@ -160,6 +162,32 @@ class Command(object):
             self.client, self.room.room_id, f"Open tickets: \n{resp}",
         )
 
+    async def _show_active_user_ticket(self):
+        """
+        Print active ticket of user
+        """
+        if self.room.room_id != self.config.management_room_id:
+            # Only allow sending messages from the management room
+            return
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_ACTIVETICKET)
+            return
+
+        user_id = self.args[0]
+
+        try:
+            user = User(self.store, user_id)
+        except IndexError as e:
+            await send_text_to_room(
+                self.client, self.room.room_id, f"{e.args[0]}",
+            )
+            return
+
+        await send_text_to_room(
+            self.client, self.room.room_id, f"{user.current_ticket_id}",
+        )
+
     async def _raise_ticket(self):
         """
         Staff raise a ticket for a user.
@@ -182,7 +210,7 @@ class Command(object):
 
         # Find/Create User by user_id
         # TODO: creating a user here - the user will have an empty communications room
-        user = User(self.store, user)
+        user = User(self.store, user, True)
 
         try:
             # Raise a new ticket

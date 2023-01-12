@@ -12,7 +12,9 @@ class UserRepository(object):
         
     def get_user(self, user_id:str):
         self.storage._execute("SELECT user_id FROM Users WHERE user_id= ?;", (user_id,))
-        id = self.storage.cursor.fetchone()[0]
+        id = self.storage.cursor.fetchone()
+        if id:
+            return id[0]
         return id
     
     def delete_user(self, user_id:str):
@@ -29,7 +31,9 @@ class UserRepository(object):
         self.storage._execute("""
             SELECT room_id FROM Users WHERE user_id=?
         """, (user_id,))
-        room_id = self.storage.cursor.fetchone()[0]
+        room_id = self.storage.cursor.fetchone()
+        if room_id:
+            return room_id[0]
         return room_id
 
     def set_user_current_ticket_id(self, user_id:str, current_ticket_id:int):
@@ -41,7 +45,9 @@ class UserRepository(object):
         self.storage._execute("""
             SELECT current_ticket_id FROM Users WHERE user_id=?
         """, (user_id,))
-        current_ticket_id = self.storage.cursor.fetchone()[0]
+        current_ticket_id = self.storage.cursor.fetchone()
+        if current_ticket_id:
+            return current_ticket_id[0]
         return current_ticket_id
 
     def get_all_fields(self, user_id:int):

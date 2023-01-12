@@ -20,12 +20,16 @@ class TicketRepository(object):
         
     def get_ticket_id(self, user_id:str, user_room_id: str):
         self.storage._execute("SELECT id FROM Tickets WHERE user_id= ? AND user_room_id= ?;", (user_id, user_room_id,))
-        id = self.storage.cursor.fetchone()[0]
+        id = self.storage.cursor.fetchone()
+        if id:
+            return id[0]
         return id
 
     def get_ticket_count(self, ticket_id:int):
         self.storage._execute("SELECT COUNT(id) FROM Tickets WHERE id= ?;", (ticket_id, ))
-        res = self.storage.cursor.fetchone()[0]
+        res = self.storage.cursor.fetchone()
+        if res:
+            return res[0]
         return res
     
     def assign_staff_to_ticket(self, ticket_id: int, staff_id:str):
