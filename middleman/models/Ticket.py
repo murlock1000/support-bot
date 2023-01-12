@@ -136,21 +136,28 @@ class Ticket(object):
             logger.debug(f"failed to create a room for ticket id {self.id}")
             raise Exception(response)
 
+    async def invite_to_ticket_room(self, user_id:str):
+        # Invite staff to the Ticket room
+        logger.debug(f"Inviting user {user_id} to ticket room f{self.ticket_room_id}")
+        response = await invite_to_room(self.client, user_id, self.ticket_room_id)
+
+        if isinstance(response, RoomInviteResponse):
+            logger.debug(f"Invited user to Ticket room successfully")
+        else:
+            logger.debug(f"failed to invite user to room:{response}")
+            raise Exception(response)
+
     async def claim_ticket(self, staff_id:str):
         # Claim the ticket and be invited to the Ticket room
 
+        staff = self.ticketRep.get_assigned_staff(self.id)
+
+        if staff_id in [s['user_id'] for s in staff]:
+            logger.debug(f"{staff_id} already assigned to this Ticket")
+            return
+
         # Assign staff member to the ticket
         self.ticketRep.assign_staff_to_ticket(self.id, staff_id)
-
-        # Invite staff to the Ticket room
-        logger.debug(f"Inviting staff {staff_id} to ticket room f{self.ticket_room_id}")
-        response = await invite_to_room(self.client, staff_id, self.ticket_room_id)
-
-        if isinstance(response, RoomInviteResponse):
-            logger.debug(f"Invited staff to Ticket room successfully")
-        else:
-            logger.debug(f"failed to invite admin to room:{response}")
-            raise Exception(response)
 
     async def close_ticket(self, staff_id:str):
         # Close the ticket the room contains by changing status to CLOSED

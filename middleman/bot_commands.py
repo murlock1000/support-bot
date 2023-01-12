@@ -5,7 +5,7 @@ from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse
 
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room
-from middleman.models.Repositories.TicketRepository import TicketStatus
+from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
@@ -56,6 +56,8 @@ class Command(object):
             await self._close_ticket()
         elif self.command.startswith("reopen"):
             await self._reopen_ticket()
+        elif self.command.startswith("listopentickets"):
+            await self._list_open_tickets()
         else:
             await self._unknown_command()
 
@@ -136,6 +138,26 @@ class Command(object):
         error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
         await send_text_to_room(
             self.client, self.room.room_id, f"Failed to deliver message to {room}! Error: {error_message}",
+        )
+
+    async def _list_open_tickets(self):
+        """
+        List open tickets for staff
+        """
+        if self.room.room_id != self.config.management_room_id:
+            # Only allow sending messages from the management room
+            return
+
+        ticketRep:TicketRepository = self.store.repositories.ticketRep
+
+        open_tickets = ticketRep.get_open_tickets()
+
+        # Construct response array
+        resp = [f"<p>{ticket['id']} - {ticket['ticket_name']} - {ticket['user_id']}</p>" for ticket in open_tickets]
+        resp = "".join(resp)
+
+        await send_text_to_room(
+            self.client, self.room.room_id, f"Open tickets: \n{resp}",
         )
 
     async def _raise_ticket(self):
@@ -252,8 +274,12 @@ class Command(object):
         ticket_id = self.args[0]
 
         try:
+            staff = Staff(self.store, self.event.sender)
             # Get ticket by id
             ticket = Ticket(self.store, self.client, ticket_id=int(ticket_id))
+            # Claim Ticket for the staff
+            await ticket.claim_ticket(staff.user_id)
+            await ticket.invite_to_ticket_room(staff.user_id)
         except Exception as response:
             logger.error(f"Failed to get ticket with error: {response}")
 
