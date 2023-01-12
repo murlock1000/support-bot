@@ -30,7 +30,7 @@ class User(object):
         else:
             raise ValueError("Invalid room id")
 
-    def update_current_ticket_id(self, current_ticket_id: str):
+    def update_current_ticket_id(self, current_ticket_id: int):
         if current_ticket_id:
             self.userRep.set_user_current_ticket_id(self.user_id, current_ticket_id)
             self.current_ticket_id = current_ticket_id

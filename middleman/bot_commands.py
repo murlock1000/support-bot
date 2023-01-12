@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Command(object):
-    def __init__(self, client, store, config, command, room, event):
+    def __init__(self, client, store, config, command, room, event, ticket:Ticket=None):
         """A command made by a user
 
         Args:
@@ -38,6 +38,7 @@ class Command(object):
         self.room = room
         self.event = event
         self.args = self.command.split()[1:]
+        self.ticket = ticket
 
     async def process(self):
         """Process the command"""
@@ -51,6 +52,8 @@ class Command(object):
             await self._claim()
         elif self.command.startswith("raise"):
             await self._raise_ticket()
+        elif self.command.startswith("close"):
+            await self._close_ticket()
         else:
             await self._unknown_command()
 
@@ -183,6 +186,27 @@ class Command(object):
             user.update_current_ticket_id(ticket.id)
             text = f"{ticket.status} ticket with id:{ticket.id} has been raised for {ticket.user_id} wit chat room {ticket.ticket_room_id}"
 
+    async def _close_ticket(self):
+        """
+        Staff close the current ticket.
+        """
+
+        try:
+            staff = Staff(self.store, self.event.sender, False)
+        except IndexError:
+            logger.warning(f"Non member user {self.event.sender} tried closing ticket")
+            return
+
+        ticket = await Ticket.find_ticket_of_room(self.store, self.client, self.room)
+        if not ticket:
+            logger.warning(f"Could not find Ticket room {self.room.room_id} to close")
+        else:
+            await ticket.close_ticket(staff.user_id)
+            current_user_ticket_id = ticket.find_user_current_ticket_id()
+
+            # Unassign user current ticket id if this was the one.
+            if current_user_ticket_id == ticket.id:
+                ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
 
     async def _claim(self):
         """

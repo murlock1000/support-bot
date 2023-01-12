@@ -175,20 +175,6 @@ class Callbacks(object):
         # Check if this is a ticket room
         ticket = await Ticket.find_ticket_of_room(self.store, self.client, room)
 
-        if ticket:
-            if ticket.status != TicketStatus.CLOSED:
-                logger.debug(
-                    f"Bot message received for Ticket #{ticket.id} in room {room.display_name} | "
-                    f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
-                    f"alias: {room.canonical_alias}): {msg}"
-                )
-                # General message listener for ticket room message relaying
-                message = Message(self.client, self.store, self.config, msg, room, event, ticket)
-                await message.process()
-            else:
-                logger.warning(f"Ticket #{ticket.id} is closed, won't forward message to user")
-            return
-
         logger.debug(
             f"Bot message received for room {room.display_name} | "
             f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
@@ -196,6 +182,7 @@ class Callbacks(object):
         )
 
         # Process as message if in a public room without command prefix
+        # TODO Implement check of named commands using an array
         has_command_prefix = msg.startswith(self.command_prefix) or msg.startswith("!message")
 
         if has_command_prefix:
@@ -205,11 +192,15 @@ class Callbacks(object):
                 # Remove the command prefix
                 msg = msg[len(self.command_prefix):]
 
-            command = Command(self.client, self.store, self.config, msg, room, event)
-            await command.process()
+            if ticket and ticket.status == TicketStatus.CLOSED:
+                logger.warning(f"Ticket #{ticket.id} is closed, won't forward message to user")
+                return
+            else:
+                command = Command(self.client, self.store, self.config, msg, room, event, ticket)
+                await command.process()
         else:
             # General message listener
-            message = Message(self.client, self.store, self.config, msg, room, event)
+            message = Message(self.client, self.store, self.config, msg, room, event, ticket)
             await message.process()
 
     async def media(self, room, event):

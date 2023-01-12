@@ -13,6 +13,11 @@ class StaffRepository(object):
         self.storage._execute("SELECT user_id FROM Staff WHERE user_id= ?;", (user_id,))
         id = self.storage.cursor.fetchone()[0]
         return id
+
+    def get_staff_count(self, user_id:str):
+        self.storage._execute("SELECT COUNT(user_id) FROM Staff WHERE user_id= ?;", (user_id, ))
+        res = self.storage.cursor.fetchone()[0]
+        return res
     
     def delete_staff(self, user_id:str):
         self.storage._execute("""

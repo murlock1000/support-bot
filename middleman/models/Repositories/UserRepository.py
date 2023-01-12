@@ -32,7 +32,7 @@ class UserRepository(object):
         room_id = self.storage.cursor.fetchone()[0]
         return room_id
 
-    def set_user_current_ticket_id(self, user_id:str, current_ticket_id:str):
+    def set_user_current_ticket_id(self, user_id:str, current_ticket_id:int):
         self.storage._execute("""
             UPDATE Users SET current_ticket_id= ? WHERE user_id=?
         """, (current_ticket_id, user_id))

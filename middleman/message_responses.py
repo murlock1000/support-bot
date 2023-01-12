@@ -225,9 +225,8 @@ class Message(object):
         if user.room_id != self.room.room_id:
             user.update_communications_room(self.room.room_id)
 
-        ticket = Ticket.fetch_ticket_by_id(self.store, self.client, user.current_ticket_id)
-
-        if ticket:
+        if user.current_ticket_id:
+            ticket = Ticket.fetch_ticket_by_id(self.store, self.client, user.current_ticket_id)
             text = self.anonymise_text(True)
             await self.handle_message_send(text, ticket.ticket_room_id)
         else:

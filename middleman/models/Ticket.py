@@ -1,8 +1,8 @@
 from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse, MatrixRoom, Response
 
-from middleman.chat_functions import create_private_room, invite_to_room, create_room, send_text_to_room
+from middleman.chat_functions import invite_to_room, create_room, send_text_to_room
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
-from middleman.models.Staff import Staff
+from middleman.models.Repositories.UserRepository import UserRepository
 from middleman.storage import Storage
 import logging
 import re
@@ -23,6 +23,7 @@ class Ticket(object):
         self.storage = storage
         self.client = client
         self.ticketRep:TicketRepository = self.storage.repositories.ticketRep
+        self.userRep: UserRepository = self.storage.repositories.userRep
 
         # PK
         self.id = None
@@ -150,3 +151,17 @@ class Ticket(object):
         else:
             logger.debug(f"failed to invite admin to room:{response}")
             raise Exception(response)
+
+    async def close_ticket(self, staff_id:str):
+        # Close the ticket the room contains by changing status to CLOSED
+        self.ticketRep.set_ticket_status(self.id, TicketStatus.CLOSED.value)
+
+        # Inform about closed room
+        logger.debug(f"Staff {staff_id} closed ticket {self.id}")
+        await send_text_to_room(
+            self.client, self.ticket_room_id,
+            f"Staff {staff_id} closed ticket {self.id}",
+        )
+
+    def find_user_current_ticket_id(self):
+        return self.userRep.get_user_current_ticket_id(self.user_id)
