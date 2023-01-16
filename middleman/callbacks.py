@@ -118,7 +118,7 @@ class Callbacks(object):
             return
 
         # Get the user who invited the bot
-        room_creator = User(self.store, room.creator)
+        room_creator = User(self.store, room.creator, True)
         logger.debug(f"Support bot invited by: {room_creator.user_id}")
 
         # Update User Communication room id

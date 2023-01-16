@@ -231,7 +231,7 @@ class Message(object):
 
 
         # TODO: Find better way to update communications channel
-        user = User(self.store, self.event.sender)
+        user = User(self.store, self.event.sender, True)
         if user.room_id != self.room.room_id:
             user.update_communications_room(self.room.room_id)
 

@@ -24,3 +24,13 @@ For example:
 
 `!claim @test:server.com Important issue`
 """
+
+COMMAND_ADD_STAFF = """Add staff with specified name. Usage:
+
+`!addstaff <user id>`
+"""
+
+COMMAND_ACTIVE_TICKET = """Get active ticket of specified user (the ticket users messages are being sent to). Usage:
+
+`!activeticket <user id>`
+"""

@@ -60,6 +60,8 @@ class Command(object):
             await self._list_open_tickets()
         elif self.command.startswith("activeticket"):
             await self._show_active_user_ticket()
+        elif self.command.startswith("addstaff"):
+            await self._add_staff()
         else:
             await self._unknown_command()
 
@@ -171,7 +173,7 @@ class Command(object):
             return
 
         if len(self.args) < 1:
-            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_ACTIVETICKET)
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_ACTIVE_TICKET)
             return
 
         user_id = self.args[0]
@@ -186,6 +188,32 @@ class Command(object):
 
         await send_text_to_room(
             self.client, self.room.room_id, f"{user.current_ticket_id}",
+        )
+
+    async def _show_active_user_ticket(self):
+        """
+        Add staff
+        """
+        if self.room.room_id != self.config.management_room_id:
+            # Only allow adding staff from the management room
+            return
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_ADD_STAFF)
+            return
+
+        user_id = self.args[0]
+
+        try:
+            user = Staff(self.store, user_id, True)
+        except IndexError as e:
+            await send_text_to_room(
+                self.client, self.room.room_id, f"{e.args[0]}",
+            )
+            return
+
+        await send_text_to_room(
+            self.client, self.room.room_id, f"{user_id} is now staff.",
         )
 
     async def _raise_ticket(self):
