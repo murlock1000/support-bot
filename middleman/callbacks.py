@@ -106,11 +106,6 @@ class Callbacks(object):
             event (nio.events.room_events.RoomMemberEvent): The event
         """
         # If ignoring old messages, ignore messages older than 5 minutes
-        if self.config.ignore_old_messages:
-            if (
-                datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
-            ).total_seconds() > 300:
-                return
         if self.config.matrix_logging_room and room.room_id == self.config.matrix_logging_room:
             # Don't react to anything in the logging room
             return
