@@ -190,7 +190,7 @@ class Command(object):
             self.client, self.room.room_id, f"{user.current_ticket_id}",
         )
 
-    async def _show_active_user_ticket(self):
+    async def _add_staff(self):
         """
         Add staff
         """
