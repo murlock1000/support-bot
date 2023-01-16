@@ -1,6 +1,8 @@
 import json
 import logging
 import re
+from datetime import datetime
+
 # noinspection PyPackageRequirements
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
@@ -48,6 +50,12 @@ class Callbacks(object):
 
     async def decryption_failure(self, room: MatrixRoom, event: MegolmEvent):
         """Callback for when an event fails to decrypt."""
+        # If ignoring old messages, ignore messages older than 5 minutes
+        if self.config.ignore_old_messages:
+            if (
+                    datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
+            ).total_seconds() > 300:
+                return
         message = f"Failed to decrypt event {event.event_id} in room {room.name} ({room.canonical_alias} / " \
                   f"{room.room_id}) from {event.sender} (session {event.session_id} - decrypting " \
                   f"if keys arrive."
@@ -97,6 +105,12 @@ class Callbacks(object):
 
             event (nio.events.room_events.RoomMemberEvent): The event
         """
+        # If ignoring old messages, ignore messages older than 5 minutes
+        if self.config.ignore_old_messages:
+            if (
+                datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
+            ).total_seconds() > 300:
+                return
         if self.config.matrix_logging_room and room.room_id == self.config.matrix_logging_room:
             # Don't react to anything in the logging room
             return
@@ -153,6 +167,12 @@ class Callbacks(object):
             event (nio.events.room_events.RoomMessageText): The event defining the message
 
         """
+        # If ignoring old messages, ignore messages older than 5 minutes
+        if self.config.ignore_old_messages:
+            if (
+                    datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
+            ).total_seconds() > 300:
+                return
         if self.config.matrix_logging_room and room.room_id == self.config.matrix_logging_room:
             # Don't react to anything in the logging room
             return
@@ -212,6 +232,12 @@ class Callbacks(object):
             event (nio.events.room_events.RoomMessageMedia): The event defining the media
 
         """
+        # If ignoring old messages, ignore messages older than 5 minutes
+        if self.config.ignore_old_messages:
+            if (
+                    datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
+            ).total_seconds() > 300:
+                return
         if self.config.matrix_logging_room and room.room_id == self.config.matrix_logging_room:
             # Don't react to anything in the logging room
             return
@@ -272,6 +298,12 @@ class Callbacks(object):
 
     async def invite(self, room, event):
         """Callback for when an invitation is received. Join the room specified in the invite"""
+        # If ignoring old messages, ignore messages older than 5 minutes
+        if self.config.ignore_old_messages:
+            if (
+                    datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
+            ).total_seconds() > 300:
+                return
         if self.should_process(event.source.get("event_id")) is False:
             return
         logger.debug(f"Got invite to {room.room_id} from {event.sender}.")
