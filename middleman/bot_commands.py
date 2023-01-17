@@ -31,6 +31,7 @@ class Command(object):
 
             event (nio.events.room_events.RoomMessageText): The event describing the command
         """
+        self.staff = None
         self.client = client
         self.store = store
         self.config = config
@@ -56,8 +57,8 @@ class Command(object):
             await self._close_ticket()
         elif self.command.startswith("reopen"):
             await self._reopen_ticket()
-        elif self.command.startswith("listopentickets"):
-            await self._list_open_tickets()
+        elif self.command.startswith("opentickets"):
+            await self._open_tickets()
         elif self.command.startswith("activeticket"):
             await self._show_active_user_ticket()
         elif self.command.startswith("addstaff"):
@@ -65,28 +66,53 @@ class Command(object):
         else:
             await self._unknown_command()
 
+    ## Decorators
+    def with_staff(f):
+        async def wrapper(self, *args, **kwargs):
+            self.staff = Staff.get_existing(self.store, self.event.sender)
+            if self.staff:
+                await f(self, *args, **kwargs)
+            else:
+                logger.info(f"{self.event.sender} is not staff and tried executing staff command.")
+                await send_text_to_room(
+                    self.client, self.config.management_room_id,
+                    f"User is not authorized to use this command",
+                )
+                return
+        return wrapper
+
+    ## Commands
+
     async def _echo(self):
         """Echo back the command's arguments"""
         response = " ".join(self.args)
         await send_text_to_room(self.client, self.room.room_id, response)
 
+    @with_staff
     async def _show_help(self):
         """Show the help text"""
         if not self.args:
             text = (
-                "Hello, I am a bot made with matrix-nio! Use `help commands` to view "
+                "Hello, I am a support bot. Use `help commands` to view "
                 "available commands."
             )
             await send_text_to_room(self.client, self.room.room_id, text)
             return
 
+        help_messages = {
+            "commands":commands_help.AVAILABLE_COMMANDS,
+            "message":commands_help.COMMAND_WRITE,
+            "claim":commands_help.COMMAND_CLAIM,
+            "raise":commands_help.COMMAND_RAISE,
+            "close":commands_help.COMMAND_CLOSE,
+            "reopen":commands_help.COMMAND_REOPEN,
+            "opentickets":commands_help.COMMAND_OPEN_TICKETS,
+            "activeticket":commands_help.COMMAND_ACTIVE_TICKET,
+            "addstaff":commands_help.COMMAND_ADD_STAFF
+
+        }
         topic = self.args[0]
-        if topic == "rules":
-            text = "These are the rules!"
-        elif topic == "commands":
-            text = "Available commands"
-        else:
-            text = "Unknown help topic!"
+        text = help_messages.get(topic,"Unknown help topic!")
         await send_text_to_room(self.client, self.room.room_id, text)
 
     async def _unknown_command(self):
@@ -96,6 +122,7 @@ class Command(object):
             f"Unknown command '{self.command}'. Try the 'help' command for more information.",
         )
 
+    @with_staff
     async def _message(self):
         """
         Write a m.text message to a room.
@@ -144,17 +171,24 @@ class Command(object):
             self.client, self.room.room_id, f"Failed to deliver message to {room}! Error: {error_message}",
         )
 
-    async def _list_open_tickets(self):
+    @with_staff
+    async def _open_tickets(self):
         """
-        List open tickets for staff
+        No args - List all open tickets
+        Arg provided - List all open tickets assigned to staff member
         """
-        if self.room.room_id != self.config.management_room_id:
-            # Only allow sending messages from the management room
-            return
+        ticket_rep: TicketRepository = self.store.repositories.ticketRep
 
-        ticketRep:TicketRepository = self.store.repositories.ticketRep
-
-        open_tickets = ticketRep.get_open_tickets()
+        if len(self.args) == 1:
+            staff = Staff.get_existing(self.store, self.args[0])
+            if not staff:
+                await send_text_to_room(
+                    self.client, self.room.room_id, f"{self.args[0]} is not a staff member.",
+                )
+                return
+            open_tickets = ticket_rep.get_open_tickets_of_staff(staff.user_id)
+        else:
+            open_tickets = ticket_rep.get_open_tickets()
 
         # Construct response array
         resp = [f"<p>{ticket['id']} - {ticket['ticket_name']} - {ticket['user_id']}</p>" for ticket in open_tickets]
@@ -164,13 +198,11 @@ class Command(object):
             self.client, self.room.room_id, f"Open tickets: \n{resp}",
         )
 
+    @with_staff
     async def _show_active_user_ticket(self):
         """
         Print active ticket of user
         """
-        if self.room.room_id != self.config.management_room_id:
-            # Only allow sending messages from the management room
-            return
 
         if len(self.args) < 1:
             await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_ACTIVE_TICKET)
@@ -204,131 +236,166 @@ class Command(object):
 
         user_id = self.args[0]
 
-        try:
-            user = Staff(self.store, user_id, True)
-        except IndexError as e:
-            await send_text_to_room(
-                self.client, self.room.room_id, f"{e.args[0]}",
-            )
-            return
-
+        Staff.create_new(self.store, user_id)
         await send_text_to_room(
             self.client, self.room.room_id, f"{user_id} is now staff.",
         )
 
+    @with_staff
     async def _raise_ticket(self):
         """
         Staff raise a ticket for a user.
         """
-        if self.room.room_id != self.config.management_room_id:
-            # Only allow raising new tickets from the management room by staff
-            return
 
         if len(self.args) < 2:
             await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_RAISE)
             return
 
-        user = self.args[0]
+        user_id = self.args[0]
         # Remove the command
         text = self.command[7:]
         # Remove the user_id
-        text = text.replace(user, "", 1)
+        text = text.replace(user_id, "", 1)
         # Strip the leading spaces
         text = text.strip()
 
-        # Find/Create User by user_id
-        # TODO: creating a user here - the user will have an empty communications room
-        user = User(self.store, user, True)
+        # Find User by user_id
+        user = User.get_existing(self.store, user_id)
 
-        try:
-            # Raise a new ticket
-            ticket = Ticket(self.store, self.client, user_id=user.user_id, ticket_name=text)
-
-            # Create a room for this ticket
-            ticket.ticket_room_id = await ticket.create_ticket_room()
-
-            # Get staff who raised the ticket
-            staff = Staff(self.store, self.event.sender)
-
-            # Claim Ticket for the staff
-            await ticket.claim_ticket(staff.user_id)
-
-            # Invite staff to Ticket room
-            await ticket.invite_to_ticket_room(staff.user_id)
-        except Exception as response:
-            logger.error(f"Failed to raise a ticket with error: {response}")
-
-            # Send error message back to room
-            error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
+        if not user:
+            logger.warning(f"Failed to raise Ticket: {user} has not texted the bot yet")
             await send_text_to_room(
-                self.client, self.room.room_id, f"Failed to raise Ticket:  {user}-({text})!  Error: {error_message}",
+                self.client, self.room.room_id, f"Failed to raise Ticket: {user} has not texted the bot yet",
             )
             return
 
-        await send_text_to_room(
-            self.client, self.room.room_id, f"Raised Ticket #{ticket.id} {ticket.ticket_name} for {ticket.user_id}",
-        )
+        # Raise a new ticket
+        if text:
+            ticket = Ticket.create_new(self.store, user.user_id, text)
+        else:
+            ticket = Ticket.create_new(self.store, user.user_id)
 
-        if ticket.status == TicketStatus.OPEN:
+        if ticket:
             user.update_current_ticket_id(ticket.id)
-            text = f"{ticket.status} ticket with id:{ticket.id} has been raised for {ticket.user_id} wit chat room {ticket.ticket_room_id}"
+            logger.info(f"Raised Ticket #{ticket.id} {ticket.ticket_name} for {ticket.user_id}")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Raised Ticket #{ticket.id} {ticket.ticket_name} for {ticket.user_id}",
+            )
+            if self.room.room_id != self.config.management_room_id:
+                await send_text_to_room(
+                    self.client, self.config.management_room_id,
+                    f"Raised Ticket #{ticket.id} {ticket.ticket_name} for {ticket.user_id}",
+                )
+        else:
+            logger.warning(f"Failed to raise Ticket. Index was not created in DB.")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to raise Ticket. Index was not created in DB.",
+            )
+            return
 
+        # Create a room for this ticket
+        response = await ticket.create_ticket_room(self.client)
+        if isinstance(response, RoomCreateResponse):
+            logger.info(f"Created a Ticket room {response.room_id} successfully for ticket id {ticket.id}")
+        else:
+            logger.info(f"Failed to create a room for ticket id {ticket.id}")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to create a room for ticket id {ticket.id}",
+            )
+            return
+
+        # Claim Ticket for the staff
+        ticket.claim_ticket(self.staff.user_id)
+
+        # Invite staff to Ticket room
+        response = await ticket.invite_to_ticket_room(self.client, self.staff.user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            logger.info(f"Invited staff {self.staff.user_id} to room {ticket.ticket_room_id}")
+        else:
+            logger.info(f"Failed to invite staff {self.staff.user_id} to room {ticket.ticket_room_id}")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to invite staff {self.staff.user_id} to room {ticket.ticket_room_id}",
+            )
+            return
+
+    @with_staff
     async def _close_ticket(self):
         """
         Staff close the current ticket.
         """
 
-        try:
-            staff = Staff(self.store, self.event.sender, False)
-        except IndexError:
-            logger.warning(f"Non member user {self.event.sender} tried closing ticket")
-            return
-
-        ticket = await Ticket.find_ticket_of_room(self.store, self.client, self.room)
+        ticket:Ticket = Ticket.find_ticket_of_room(self.store, self.room)
         if not ticket:
-            logger.warning(f"Could not find Ticket room {self.room.room_id} to close")
+            logger.warning(f"Could not find Ticket with ticket room {self.room.room_id} to close")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Could not find Ticket room {self.room.room_id} to close",
+            )
         else:
-            await ticket.close_ticket(staff.user_id)
-            current_user_ticket_id = ticket.find_user_current_ticket_id()
+            if ticket.status != TicketStatus.CLOSED:
+                ticket.set_status(TicketStatus.CLOSED)
 
-            # Unassign user current ticket id if this was the one.
-            if current_user_ticket_id == ticket.id:
-                ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+                current_user_ticket_id = ticket.find_user_current_ticket_id()
+                if current_user_ticket_id == ticket.id:
+                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+
+                logger.info(f"Closed Ticket {ticket.id}")
+                await send_text_to_room(
+                    self.client, self.room.room_id,
+                    f"Closed Ticket {ticket.id}",
+                )
+            else:
+                logger.info(f"Ticket {ticket.id} is already closed")
+                await send_text_to_room(
+                    self.client, self.room.room_id,
+                    f"Ticket {ticket.id} is already closed",
+                )
+
 
     async def _reopen_ticket(self):
         """
         Staff reopen the current ticket.
         """
 
-        try:
-            staff = Staff(self.store, self.event.sender, False)
-        except IndexError:
-            logger.warning(f"Non member user {self.event.sender} tried reopening ticket")
-            return
-
-        ticket = await Ticket.find_ticket_of_room(self.store, self.client, self.room)
+        ticket: Ticket = Ticket.find_ticket_of_room(self.store, self.room)
         if not ticket:
-            logger.warning(f"Could not find Ticket room {self.room.room_id} to close")
+            logger.warning(f"Could not find Ticket with ticket room {self.room.room_id} to reopen")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Could not find Ticket room {self.room.room_id} to reopen",
+            )
         else:
-            if ticket.status == TicketStatus.CLOSED:
-                logger.debug(f"Ticket already open")
+            current_user_ticket_id = ticket.find_user_current_ticket_id()
+            if current_user_ticket_id is not None:
+                logger.warning(f"User already has Ticket open with ID {current_user_ticket_id} close it first to reopen this Ticket.")
                 await send_text_to_room(
-                    self.client, ticket.ticket_room_id,
-                    f"Ticket already open",
+                    self.client, self.room.room_id,
+                    f"User already has Ticket open with ID {current_user_ticket_id} close it first to reopen this Ticket.",
                 )
-            else:
-                await ticket.reopen_ticket(staff.user_id)
+                return
+            if ticket.status == TicketStatus.CLOSED:
+                ticket.set_status(TicketStatus.OPEN)
 
-                # assign this ticket as the users current ticket id
                 ticket.userRep.set_user_current_ticket_id(ticket.user_id, ticket.id)
 
+                logger.info(f"Reopened Ticket {ticket.id}")
+                await send_text_to_room(
+                    self.client, self.room.room_id,
+                    f"Reopened Ticket {ticket.id}",
+                )
+            else:
+                logger.info(f"Ticket {ticket.id} is already open")
+                await send_text_to_room(
+                    self.client, self.room.room_id,
+                    f"Ticket {ticket.id} is already open",
+                )
+
+    @with_staff
     async def _claim(self):
         """
         Staff claim a ticket.
         """
-        if self.room.room_id != self.config.management_room_id:
-            # Only allow claiming from the management room by staff
-            return
 
         if len(self.args) < 1:
             await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIM)
@@ -336,21 +403,27 @@ class Command(object):
 
         ticket_id = self.args[0]
 
-        try:
-            staff = Staff(self.store, self.event.sender)
-            # Get ticket by id
-            ticket = Ticket(self.store, self.client, ticket_id=int(ticket_id))
-            # Claim Ticket for the staff
-            await ticket.claim_ticket(staff.user_id)
-            await ticket.invite_to_ticket_room(staff.user_id)
-        except Exception as response:
-            logger.error(f"Failed to get ticket with error: {response}")
+        # Get ticket by id
+        ticket = Ticket.get_existing(self.store, int(ticket_id))
 
-            # Send error message back to room
-            error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
+        if not ticket:
+            logger.warning(f"Ticket with ID {ticket_id} was not found.")
             await send_text_to_room(
-                self.client, self.room.room_id, f"Failed to claim Ticket ({ticket_id})!  Error: {error_message}",
+                self.client, self.room.room_id, f"Ticket with ID {ticket_id} was not found.",
             )
             return
 
-        logger.debug(f"Joined {ticket.status} ticket with id:{ticket.id} has been raised by {ticket.user_id}")
+        # Claim Ticket for the staff
+        ticket.claim_ticket(self.staff.user_id)
+
+        logger.debug(f"Inviting user {self.staff.user_id} to ticket room {ticket.ticket_room_id}")
+
+        # Invite staff to Ticket room
+        response = await ticket.invite_to_ticket_room(self.staff.user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            logger.debug(f"Invited staff to Ticket room successfully")
+        else:
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to invite {self.staff.user_id} to Ticket room {ticket.ticket_room_id}: {response.message}",
+            )

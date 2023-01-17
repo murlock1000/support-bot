@@ -76,12 +76,12 @@ async def get_room_id(client: nio.AsyncClient, room: str, logger: logging.Logger
             return response.room_id
         else:
             logger.warning(f"Could not resolve '{room}' to a room ID")
-            raise ValueError(message="Unknown room alias")
+            raise ValueError("Unknown room alias")
     elif room.startswith("!"):
         return room
     else:
         logger.warning(f"Unknown type of room identifier: {room}")
-        raise ValueError(message="Unknown room identifier")
+        raise ValueError("Unknown room identifier")
 
 
 async def sleep_ms(delay_ms):

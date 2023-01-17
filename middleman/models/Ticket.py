@@ -16,64 +16,51 @@ ticket_name_pattern = re.compile(r"Ticket #(\d+) \(.+\)")
 class Ticket(object):
 
     ticket_cache = {}
-    open_tickets = {}
 
-    def __init__(self, storage:Storage, client:AsyncClient, ticket_id:int=None, user_id:str=None, ticket_name:str=None, ticket_room_id:str=None):
+    def __init__(self, storage:Storage, ticket_id:int):
         # Setup Storage bindings
         self.storage = storage
-        self.client = client
         self.ticketRep:TicketRepository = self.storage.repositories.ticketRep
         self.userRep: UserRepository = self.storage.repositories.userRep
 
-        # PK
-        self.id = None
+        # Fetch existing fields of Ticket
+        fields = self.ticketRep.get_all_fields(ticket_id)
 
-        # Find existing ticket if provided with ticket room id
-        if ticket_id:
-            # Check if Ticket exists with id
-            exists = self.ticketRep.get_ticket_count(ticket_id) == 1
-            if not exists:
-                raise IndexError(f"Ticket with index {ticket_id} not found")
-            else:
-                self.id = ticket_id
-
-        # If Ticket not found
-        if not self.id:
-            # If provided with user_id - create new ticket
-            if user_id:
-                self.user_id = user_id
-
-                # Validate ticket/room name
-                if not ticket_name:
-                    # TODO: Use a default value from config
-                    self.ticket_name = "General"
-                else:
-                    self.ticket_name = ticket_name
-
-                self.id = self.ticketRep.create_ticket(user_id, ticket_room_id, self.ticket_name)
-                self.status = TicketStatus.OPEN
-
-            else:
-                raise ValueError(f"ID of existing ticket not found and user_id/ticket_room_id not specified for new Ticket")
-        else:
-            # Fetch existing fields of Ticket
-            fields = self.ticketRep.get_all_fields(self.id)
-
-            self.id =               fields['id']
-            self.user_id =          fields['user_id']
-            self.ticket_room_id =   fields['ticket_room_id']
-            self.status =           fields['status']
-            self.ticket_name =      fields['ticket_name']
+        self.id =               fields['id']
+        self.user_id =          fields['user_id']
+        self.ticket_room_id =   fields['ticket_room_id']
+        self.status =           TicketStatus(fields['status'])
+        self.ticket_name =      fields['ticket_name']
 
     @staticmethod
-    def fetch_ticket_by_id(store, client, ticket_id:int):
-        try:
-            # Try to find a ticket by id
-            ticket = Ticket(store, client, ticket_id=ticket_id)
-        except IndexError as index_error:
-            logger.debug(f"{index_error.args[0]}")
+    def get_existing(storage: Storage, ticket_id: int):
+        # Check cache first
+        ticket = Ticket.ticket_cache.get(ticket_id, None)
+        if ticket:
+            return ticket
+
+        # Find existing Ticket in Database
+        exists = storage.repositories.ticketRep.get_ticket(ticket_id)
+        if exists:
+            ticket = Ticket(storage, ticket_id)
+            # Add ticket to cache
+            Ticket.ticket_cache[ticket_id] = ticket
+            return ticket
+        else:
             return None
-        return ticket
+
+    @staticmethod
+    def create_new(storage: Storage, user_id:str, ticket_name:str="General"):
+        # Create Ticket entry
+        ticket_id = storage.repositories.ticketRep.create_ticket(user_id, ticket_name)
+
+        if ticket_id:
+            ticket = Ticket(storage, ticket_id)
+            # Add ticket to cache
+            Ticket.ticket_cache[ticket_id] = ticket
+            return ticket
+        else:
+            return None
 
     @staticmethod
     def find_room_ticket_id(room:MatrixRoom):
@@ -89,97 +76,66 @@ class Ticket(object):
             return int(ticket_id)
 
     @staticmethod
-    async def find_ticket_of_room(store, client, room:MatrixRoom):
+    def find_ticket_of_room(store, room:MatrixRoom):
         is_open_ticket_room = False
-        ticket = None
 
         ticket_id = Ticket.find_room_ticket_id(room)
         if not ticket_id:
             return None
 
         should_add_to_cache = False
-        if ticket_id in Ticket.open_tickets: # Check cache
-            ticket = Ticket.open_tickets[ticket_id]
-            should_add_to_cache = True
-        else:
-            try:
-                ticket = Ticket(store, client, ticket_id=ticket_id)
-            except Response as response:
-                error_message = response if type(response == str) else getattr(response, "message",
-                                                                               "Unknown error")
-                await send_text_to_room(
-                    client, room.room_id,
-                    f"Failed to fetch Ticket of room with ticket id #{ticket_id}!  Error: {error_message}",
-                )
-                return None
+        ticket = Ticket.ticket_cache.get(ticket_id, None)
+        # Cache hit
+        if ticket:
+            return ticket
 
-        if ticket.ticket_room_id == room.room_id:
-            if should_add_to_cache and ticket.status != TicketStatus.CLOSED:
-                Ticket.open_tickets[ticket_id] = ticket
+        # Cache miss
+        ticket = Ticket.get_existing(store, ticket_id)
+
+        if ticket:
+            Ticket.ticket_cache[ticket.id] = ticket
             return ticket
         else:
-            logger.warning(
-                f"Room {room.room_id} does not match Ticket #{ticket.id} room id {ticket.ticket_room_id}")
-
             return None
 
-    async def create_ticket_room(self):
+    async def create_ticket_room(self, client:AsyncClient):
         # Request a Ticket reply room to be created.
-        response = await create_room(self.client, f"Ticket #{self.id} ({self.ticket_name})")
+        response = await create_room(client, f"Ticket #{self.id} ({self.ticket_name})")
 
         if isinstance(response, RoomCreateResponse):
-            logger.debug(f"Created a Ticket room {response.room_id} successfully for ticket id {self.id}")
             self.ticket_room_id = response.room_id
             self.ticketRep.set_ticket_room_id(self.id, self.ticket_room_id)
-            return response.room_id
-        else:
-            logger.debug(f"failed to create a room for ticket id {self.id}")
-            raise Exception(response)
 
-    async def invite_to_ticket_room(self, user_id:str):
+        return response
+
+    def set_ticket_room_id(self, ticket_room_id:str):
+        self.ticket_room_id = ticket_room_id
+        self.ticketRep.set_ticket_room_id(self.id, ticket_room_id)
+
+    async def invite_to_ticket_room(self, client:AsyncClient, user_id:str):
         # Invite staff to the Ticket room
-        logger.debug(f"Inviting user {user_id} to ticket room f{self.ticket_room_id}")
-        response = await invite_to_room(self.client, user_id, self.ticket_room_id)
+        response = await invite_to_room(client, user_id, self.ticket_room_id)
+        return response
 
-        if isinstance(response, RoomInviteResponse):
-            logger.debug(f"Invited user to Ticket room successfully")
-        else:
-            logger.debug(f"failed to invite user to room:{response}")
-            raise Exception(response)
-
-    async def claim_ticket(self, staff_id:str):
-        # Claim the ticket and be invited to the Ticket room
+    def claim_ticket(self, staff_id:str):
+        # Claim the ticket for staff member
 
         staff = self.ticketRep.get_assigned_staff(self.id)
 
+        # Check if staff not assigned to ticket already
         if staff_id in [s['user_id'] for s in staff]:
-            logger.debug(f"{staff_id} already assigned to this Ticket")
             return
 
         # Assign staff member to the ticket
         self.ticketRep.assign_staff_to_ticket(self.id, staff_id)
 
-    async def close_ticket(self, staff_id:str):
-        # Close the ticket the room contains by changing status to CLOSED
-        self.ticketRep.set_ticket_status(self.id, TicketStatus.CLOSED.value)
+    def set_status(self, status:TicketStatus):
+        self.ticketRep.set_ticket_status(self.id, status.value)
+        self.status = status
 
-        # Inform about closed room
-        logger.debug(f"Staff {staff_id} closed ticket {self.id}")
-        await send_text_to_room(
-            self.client, self.ticket_room_id,
-            f"Staff {staff_id} closed ticket {self.id}",
-        )
-
-    async def reopen_ticket(self, staff_id:str):
-        # Reopen the ticket the room contains by changing status to OPEN
-        self.ticketRep.set_ticket_status(self.id, TicketStatus.OPEN.value)
-
-        # Inform about closed room
-        logger.debug(f"Staff {staff_id} reopened ticket {self.id}")
-        await send_text_to_room(
-            self.client, self.ticket_room_id,
-            f"Staff {staff_id} reopened ticket {self.id}",
-        )
+        # Remove from cache if closing ticket
+        if status == TicketStatus.CLOSED and Ticket.ticket_cache.get(self.id):
+            Ticket.ticket_cache.pop(self.id)
 
     def find_user_current_ticket_id(self):
         return self.userRep.get_user_current_ticket_id(self.user_id)

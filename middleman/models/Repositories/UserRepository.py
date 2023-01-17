@@ -1,3 +1,5 @@
+from typing import Union
+
 from middleman.storage import Storage
 
 class UserRepository(object):
@@ -36,7 +38,7 @@ class UserRepository(object):
             return room_id[0]
         return room_id
 
-    def set_user_current_ticket_id(self, user_id:str, current_ticket_id:int):
+    def set_user_current_ticket_id(self, user_id:str, current_ticket_id:Union[int, None]):
         self.storage._execute("""
             UPDATE Users SET current_ticket_id= ? WHERE user_id=?
         """, (current_ticket_id, user_id))
@@ -50,7 +52,7 @@ class UserRepository(object):
             return current_ticket_id[0]
         return current_ticket_id
 
-    def get_all_fields(self, user_id:int):
+    def get_all_fields(self, user_id:str):
         self.storage._execute("""
             select user_id, room_id, current_ticket_id from Users where user_id = ?;
         """, (user_id,))

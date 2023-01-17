@@ -189,7 +189,7 @@ class Media(object):
     async def handle_ticket_room_media(self):
         """Relay staff Ticket message to the client communications room."""
 
-        if self.ticket.status == TicketStatus.CLOSED.value:
+        if self.ticket.status == TicketStatus.CLOSED:
             logger.debug(
                 f"Skipping message, since Ticket is closed. Reopen it first."
             )
@@ -200,9 +200,13 @@ class Media(object):
             return
 
         text = self.anonymise_text(True)
-        user = User(self.store, self.ticket.user_id)
+        user = User.get_existing(self.store, self.ticket.user_id)
         if not user.room_id:
-            logger.debug("Error fetching room id of user")
+            logger.warning("User does not have a valid communications channel. The user must write to the bot first.")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"User does not have a valid communications channel. The user must write to the bot first.",
+            )
             return
         await self.handle_message_send(text, user.room_id)
     async def relay_to_management_room(self):
@@ -215,14 +219,17 @@ class Media(object):
                          self.event.event_id, self.room.room_id)
             return
 
-        user = User(self.store, self.event.sender, True)
+        user = User.get_existing(self.store, self.event.sender)
+        if not user:
+            # If we don't have the user details yet - create new instance
+            user = User.create_new(self.store, self.event.sender)
 
         if user.room_id != self.room.room_id:
             user.update_communications_room(self.room.room_id)
 
 
         if user.current_ticket_id:
-            ticket = Ticket.fetch_ticket_by_id(self.store, self.client, user.current_ticket_id)
+            ticket = Ticket.get_existing(self.store, user.current_ticket_id)
             text = self.anonymise_text(True)
             await self.handle_message_send(text, ticket.ticket_room_id)
         else:

@@ -11,11 +11,13 @@ class TicketRepository(object):
     def __init__(self, storage:Storage) -> None:
         self.storage = storage
     
-    def create_ticket(self, user_id:str, user_room_id: str, ticket_name:str):
+    def create_ticket(self, user_id:str, ticket_name:str):
         self.storage._execute("""
-            INSERT INTO Tickets (user_room_id, user_id, ticket_name) values (?, ?, ?) RETURNING id;
-        """, (user_room_id, user_id, ticket_name,))
-        inserted_id = self.storage.cursor.fetchone()[0] #BUG - lastrowid always returns 0??
+            INSERT INTO Tickets (user_id, ticket_name) values (?, ?) RETURNING id;
+        """, (user_id, ticket_name,))
+        inserted_id = self.storage.cursor.fetchone()
+        if inserted_id:
+            return inserted_id[0] #BUG - lastrowid always returns 0??
         return inserted_id
         
     def get_ticket_id(self, user_id:str, user_room_id: str):
@@ -25,12 +27,12 @@ class TicketRepository(object):
             return id[0]
         return id
 
-    def get_ticket_count(self, ticket_id:int):
-        self.storage._execute("SELECT COUNT(id) FROM Tickets WHERE id= ?;", (ticket_id, ))
-        res = self.storage.cursor.fetchone()
-        if res:
-            return res[0]
-        return res
+    def get_ticket(self, ticket_id:int):
+        self.storage._execute("SELECT id FROM Tickets WHERE id= ?;", (ticket_id, ))
+        id = self.storage.cursor.fetchone()
+        if id:
+            return id[0]
+        return id
     
     def assign_staff_to_ticket(self, ticket_id: int, staff_id:str):
         self.storage._execute("""
@@ -101,6 +103,20 @@ class TicketRepository(object):
         self.storage._execute("""
             SELECT id, user_id, ticket_name FROM Tickets WHERE status=?
         """, (TicketStatus.OPEN.value,))
+
+        tickets = self.storage.cursor.fetchall()
+        return [
+            {
+                'id':ticket[0],
+                'user_id': ticket[1],
+                'ticket_name' : ticket[2]
+            } for ticket in tickets
+        ]
+
+    def get_open_tickets_of_staff(self, staff_id:str):
+        self.storage._execute("""
+            SELECT id, user_id, ticket_name FROM Tickets t JOIN TicketsStaffRelation ts ON t.id=ts.ticket_id WHERE status=? AND staff_id=?
+        """, (TicketStatus.OPEN.value, staff_id, ))
 
         tickets = self.storage.cursor.fetchall()
         return [

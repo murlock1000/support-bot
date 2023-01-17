@@ -127,7 +127,10 @@ class Callbacks(object):
             return
 
         # Get the user who invited the bot
-        room_creator = User(self.store, room.creator, True)
+        room_creator = User.get_existing(self.store, room.creator)
+        if not room_creator:
+            room_creator = User.create_new(self.store, room.creator)
+
         logger.debug(f"Support bot invited by: {room_creator.user_id}")
 
         # Update User Communication room id
@@ -188,7 +191,7 @@ class Callbacks(object):
             msg = msg[3:]
 
         # Check if this is a ticket room
-        ticket = await Ticket.find_ticket_of_room(self.store, self.client, room)
+        ticket = Ticket.find_ticket_of_room(self.store, room)
 
         logger.debug(
             f"Bot message received for room {room.display_name} | "
@@ -207,12 +210,8 @@ class Callbacks(object):
                 # Remove the command prefix
                 msg = msg[len(self.command_prefix):]
 
-            if ticket and ticket.status == TicketStatus.CLOSED:
-                logger.warning(f"Ticket #{ticket.id} is closed, won't forward message to user")
-                return
-            else:
-                command = Command(self.client, self.store, self.config, msg, room, event, ticket)
-                await command.process()
+            command = Command(self.client, self.store, self.config, msg, room, event, ticket)
+            await command.process()
         else:
             # General message listener
             message = Message(self.client, self.store, self.config, msg, room, event, ticket)
@@ -261,22 +260,19 @@ class Callbacks(object):
         media_info = event.source.get("content").get("info")
 
         # Check if this is a ticket room
-        ticket = await Ticket.find_ticket_of_room(self.store, self.client, room)
+        ticket = Ticket.find_ticket_of_room(self.store, room)
 
         if ticket:
-            if ticket.status != TicketStatus.CLOSED:
-                logger.debug(
-                    f"Bot media received for Ticket #{ticket.id} in room {room.display_name} | "
-                    f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
-                    f"alias: {room.canonical_alias}): {body}"
-                )
-                # General media listener for ticket room message relaying
-                media = Media(
-                    self.client, self.store, self.config, msgtype, body, media_url, media_file, media_info, room, event, ticket,
-                )
-                await media.process()
-            else:
-                logger.warning(f"Ticket #{ticket.id} is closed, won't forward message to user")
+            logger.debug(
+                f"Bot media received for Ticket #{ticket.id} in room {room.display_name} | "
+                f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
+                f"alias: {room.canonical_alias}): {body}"
+            )
+            # General media listener for ticket room message relaying
+            media = Media(
+                self.client, self.store, self.config, msgtype, body, media_url, media_file, media_info, room, event, ticket,
+            )
+            await media.process()
             return
 
         logger.debug(

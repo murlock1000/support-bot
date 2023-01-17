@@ -1,3 +1,5 @@
+AVAILABLE_COMMANDS = """message, claim, raise, close, reopen, opentickets, activeticket, addstaff"""
+
 COMMAND_WRITE = """Sends a message to a room using the bot. Usage:
 
 `!message <room ID or alias> <Text to write>`
@@ -7,7 +9,7 @@ For example:
 `!message #foobar:domain.tld Hello people in the Foobar room.`
 """
 
-COMMAND_CLAIM = """Claim the ticket with specified index. Usage:
+COMMAND_CLAIM = """Claim the ticket with specified index (be invited to the ticket room). Usage:
 
 `!claim <Ticket index>`
 
@@ -30,7 +32,22 @@ COMMAND_ADD_STAFF = """Add staff with specified name. Usage:
 `!addstaff <user id>`
 """
 
-COMMAND_ACTIVE_TICKET = """Get active ticket of specified user (the ticket users messages are being sent to). Usage:
+COMMAND_ACTIVE_TICKET = """Get active ticket of specified user (the ticket user's messages are being sent to). Usage:
 
 `!activeticket <user id>`
+"""
+
+COMMAND_CLOSE = """Closes the ticket that belongs to the current room (no longer transmits communications to the ticket room). Usage:
+(In a Ticket room)
+`!close`
+"""
+
+COMMAND_REOPEN = """Reopens the ticket that belongs to the current room (starts relaying user communications to the ticket room). Usage:
+(In a Ticket room)
+`!reopen`
+"""
+
+COMMAND_OPEN_TICKETS = """Lists all currently open tickets, or open tickets that are assigned to a specified staff member. Usage:
+
+`!opentickets (<user id>)`
 """
