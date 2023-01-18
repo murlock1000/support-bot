@@ -21,7 +21,7 @@ from nio import (
     RoomMessageNotice,
     RoomMessageText,
     RoomMessageMedia,
-    RoomResolveAliasResponse,
+    RoomResolveAliasResponse, RoomKeyRequest,
 )
 
 from middleman.callbacks import Callbacks
@@ -75,6 +75,8 @@ async def main(config: Config):
     client.add_event_callback(callbacks.decryption_failure, (MegolmEvent,))
     # noinspection PyTypeChecker
     client.add_to_device_callback(callbacks.room_key, (ForwardedRoomKeyEvent, RoomKeyEvent))
+    # noinspection PyTypeChecker
+    client.add_to_device_callback(callbacks.room_key_request, (RoomKeyRequest,))
 
     # Keep trying to reconnect on failure (with some time in-between)
     while True:

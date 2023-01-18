@@ -6,7 +6,7 @@ from datetime import datetime
 # noinspection PyPackageRequirements
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
-    RoomKeyRequestError, RoomMemberEvent, Response,
+    RoomKeyRequestError, RoomMemberEvent, Response, RoomKeyRequest,
 )
 
 from middleman.bot_commands import Command
@@ -351,6 +351,18 @@ class Callbacks(object):
                 await self.decrypted_callback(encrypted_event["room_id"], parsed_event)
             else:
                 logger.warning("Failed to decrypt event %s", decrypted.event_id)
+
+    async def room_key_request(self, event: RoomKeyRequest):
+        """Callback for ToDevice RoomKeyRequest events from unverified device."""
+
+        user_id = event.sender
+        device_id = event.requesting_device_id
+        device = self.client.device_store[user_id][device_id]
+
+        self.client.verify_device(device)
+        for request in self.client.get_active_key_requests(
+                user_id, device_id):
+            res = self.client.continue_key_share(request)
 
     def should_process(self, event_id: str) -> bool:
         logger.debug("Callback received event: %s", event_id)

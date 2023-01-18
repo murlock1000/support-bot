@@ -66,6 +66,8 @@ class Command(object):
             await self._add_staff()
         elif self.command.startswith("setupcommunicationsroom"):
             await self._setup_communications_room()
+        elif self.command.startswith("sharekeys"):
+            await self._share_keys()
         else:
             await self._unknown_command()
 
@@ -402,6 +404,18 @@ class Command(object):
                     self.client, self.room.room_id,
                     f"Ticket {ticket.id} is already closed",
                 )
+
+    @with_staff
+    async def _share_keys(self):
+
+        user_id = self.event.sender
+        device_id = self.args[0]
+        device = self.client.device_store[user_id][device_id]
+        self.client.verify_device(device)
+        for request in self.client.get_active_key_requests(
+            user_id, device_id):
+            res = self.client.continue_key_share(request)
+
 
     @with_staff
     async def _reopen_ticket(self):
