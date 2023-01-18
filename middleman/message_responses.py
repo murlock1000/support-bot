@@ -42,6 +42,8 @@ class Message(object):
         reply_to = get_in_reply_to(self.event)
         replaces = get_replaces(self.event)
 
+        logger.debug(f"a- {reply_to}: {replaces}")
+
         reply_section = get_reply_msg(self.event, reply_to, replaces)
         if not reply_section:
             logger.debug(

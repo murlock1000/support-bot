@@ -14,8 +14,8 @@ from nio import (
     RoomPreset,
     RoomVisibility,
     RoomInviteError,
-    RoomInviteResponse
-    )
+    RoomInviteResponse, RoomKickResponse, RoomKickError
+)
 
 from middleman.utils import get_room_id, with_ratelimit
 
@@ -254,3 +254,22 @@ async def invite_to_room(
         elif isinstance(resp, RoomInviteError):
             logger.exception(f"Failed to invite user {mxid} to room {room_id} with error: {resp.status_code}")
         return resp
+
+async def kick_from_room(
+        client: AsyncClient, mxid: str, room_id: str
+) -> Union[RoomKickResponse , RoomKickError ]:
+    """
+    :param mxid: user id to kick
+    :param roomname: The room name
+    :return: the Room Response from room_create()
+    """
+
+    resp = await with_ratelimit(client.room_kick)(
+        room_id=room_id,
+        user_id=mxid,
+    )
+    if isinstance(resp, RoomKickResponse):
+        logger.debug(f"kicked user {mxid} from room: {room_id}")
+    elif isinstance(resp, RoomKickError):
+        logger.exception(f"Failed to kick user {mxid} from room {room_id} with error: {resp.status_code}")
+    return resp

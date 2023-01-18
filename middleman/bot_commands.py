@@ -4,7 +4,7 @@ import logging
 from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse
 
 from middleman import commands_help
-from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room
+from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
@@ -345,6 +345,11 @@ class Command(object):
                     self.client, self.room.room_id,
                     f"Closed Ticket {ticket.id}",
                 )
+
+                # Kick staff from room after close
+                await kick_from_room(
+                    self.client, self.event.sender, self.room.room_id
+                )
             else:
                 logger.info(f"Ticket {ticket.id} is already closed")
                 await send_text_to_room(
@@ -419,7 +424,7 @@ class Command(object):
         logger.debug(f"Inviting user {self.staff.user_id} to ticket room {ticket.ticket_room_id}")
 
         # Invite staff to Ticket room
-        response = await ticket.invite_to_ticket_room(self.staff.user_id)
+        response = await ticket.invite_to_ticket_room(self.client, self.staff.user_id)
 
         if isinstance(response, RoomInviteResponse):
             logger.debug(f"Invited staff to Ticket room successfully")
