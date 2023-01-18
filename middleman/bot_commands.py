@@ -1,15 +1,16 @@
 import logging
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse
+from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse, RoomCreateError
 
 from middleman import commands_help
-from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room
+from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
+    find_private_msg
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
-from middleman.utils import get_replaces
+from middleman.utils import get_replaces, get_username
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ class Command(object):
             await self._show_active_user_ticket()
         elif self.command.startswith("addstaff"):
             await self._add_staff()
+        elif self.command.startswith("setupcommunicationsroom"):
+            await self._setup_communications_room()
         else:
             await self._unknown_command()
 
@@ -210,11 +213,10 @@ class Command(object):
 
         user_id = self.args[0]
 
-        try:
-            user = User(self.store, user_id)
-        except IndexError as e:
+        user = User.get_existing(self.store, user_id)
+        if not user:
             await send_text_to_room(
-                self.client, self.room.room_id, f"{e.args[0]}",
+                self.client, self.room.room_id, f"User with ID {user_id} does not exist in DB",
             )
             return
 
@@ -240,6 +242,45 @@ class Command(object):
         await send_text_to_room(
             self.client, self.room.room_id, f"{user_id} is now staff.",
         )
+
+    @with_staff
+    async def _setup_communications_room(self):
+        """
+        Updates the communications room of a user. Creates one if needed.
+        """
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_SETUP_COMMUNICATIONS_ROOM)
+            return
+
+        user_id = self.args[0]
+
+        user = User.get_existing(self.store, user_id)
+        if not user:
+            # If we don't have the user details yet - create new instance
+            user = User.create_new(self.store, user_id)
+
+        room = find_private_msg(self.client, user_id)
+
+        if room:
+            user.update_communications_room(room.room_id)
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Existing room found with ID {room.room_id}",
+            )
+        else:
+            username = get_username(self.client.user_id)
+            if username:
+                resp = await create_private_room(self.client, user_id, username)
+                if isinstance(resp, RoomCreateResponse):
+                    user.update_communications_room(resp.room_id)
+                    await send_text_to_room(
+                        self.client, self.room.room_id,
+                        f"Created a new DM for user {user_id} with roomID: {resp.room_id}",
+                    )
+                elif isinstance(resp, RoomCreateError):
+                    await send_text_to_room(
+                        self.client, self.room.room_id, f"Failed to create a new DM for user {user_id} with error: {resp.status_code}",
+                    )
 
     @with_staff
     async def _raise_ticket(self):

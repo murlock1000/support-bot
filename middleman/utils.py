@@ -16,6 +16,33 @@ USER_ID_REGEX = r"@[a-z0-9_=\/\-\.]*:(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-z
 reply_regex = re.compile(r"<mx-reply><blockquote>.*</blockquote></mx-reply>(.*)", flags=re.RegexFlag.DOTALL)
 
 
+def make_pill(user_id: str, displayname: str = None) -> str:
+    """Convert a user ID (and optionally a display name) to a formatted user 'pill'
+
+    Args:
+        user_id: The MXID of the user.
+
+        displayname: An optional displayname. Clients like Element will figure out the
+            correct display name no matter what, but other clients may not. If not
+            provided, the MXID will be used instead.
+
+    Returns:
+        The formatted user pill.
+    """
+    if not displayname:
+        # Use the user ID as the displayname if not provided
+        displayname = user_id
+
+    return f'<a href="https://matrix.to/#/{user_id}">{displayname}</a>'
+
+def get_username(user_id: str)-> str:
+    """
+    Convert a user id `@user:server` to `user`
+    """
+    username_pattern = re.compile(r"@(.*):")
+    match = username_pattern.match(user_id)
+    if match:
+        return match[1]
 def get_in_reply_to(event: nio.Event) -> Optional[str]:
     """
     Pulls an in reply to event ID from an event, if any.

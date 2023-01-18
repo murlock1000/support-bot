@@ -14,7 +14,7 @@ from nio import (
     RoomPreset,
     RoomVisibility,
     RoomInviteError,
-    RoomInviteResponse, RoomKickResponse, RoomKickError
+    RoomInviteResponse, RoomKickResponse, RoomKickError, MatrixRoom
 )
 
 from middleman.utils import get_room_id, with_ratelimit
@@ -220,6 +220,28 @@ async def create_private_room(
             logger.exception(f"Failed to create a new DM for user {mxid} with error: {resp.status_code}")
         return resp
 
+
+def is_room_private_msg(room: MatrixRoom, mxid: str) -> bool:
+    if room.member_count == 2:
+        for user in room.users:
+            if user == mxid:
+                return True
+        for user in room.invited_users:
+            if user == mxid:
+                return True
+    return False
+def find_private_msg(client:AsyncClient, mxid: str) -> MatrixRoom:
+    # Find if we already have a common room with user:
+    msg_room = None
+    for roomid in client.rooms:
+        room = client.rooms[roomid]
+        if is_room_private_msg(room, mxid):
+            msg_room = room
+            break
+
+    if msg_room:
+        logger.debug(f"Found existing DM for user {mxid} with roomID: {msg_room.room_id}")
+    return msg_room
 
 async def create_room(
         client: AsyncClient, roomname: str

@@ -4,7 +4,7 @@ from typing import List
 # noinspection PyPackageRequirements
 from nio import RoomSendResponse, RoomSendError
 
-from middleman.chat_functions import send_media_to_room, send_reaction, send_text_to_room
+from middleman.chat_functions import send_media_to_room, send_reaction, send_text_to_room, find_private_msg
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
@@ -189,6 +189,7 @@ class Media(object):
     async def handle_ticket_room_media(self):
         """Relay staff Ticket message to the client communications room."""
 
+        #TODO Abstract Duplicate Code
         if self.ticket.status == TicketStatus.CLOSED:
             logger.debug(
                 f"Skipping message, since Ticket is closed. Reopen it first."
@@ -201,13 +202,32 @@ class Media(object):
 
         text = self.anonymise_text(True)
         user = User.get_existing(self.store, self.ticket.user_id)
-        if not user.room_id:
-            logger.warning("User does not have a valid communications channel. The user must write to the bot first.")
+        if user.current_ticket_id != self.ticket.id:
+            logger.debug(
+                f"Skipping message, there are multiple open Tickets and this Ticket is not active \
+                ({user.current_ticket_id} is active). First close {user.current_ticket_id} and then reopen this Ticket."
+            )
             await send_text_to_room(
                 self.client, self.room.room_id,
-                f"User does not have a valid communications channel. The user must write to the bot first.",
+                f"Skipping message, there are multiple open Tickets and this Ticket is not active \
+                 ({user.current_ticket_id} is active). First close {user.current_ticket_id} and then reopen this Ticket."
             )
             return
+
+        if not user.room_id:
+            room = find_private_msg(self.client, self.ticket.user_id)
+            if not room:
+                logger.warning(
+                    "User does not have a valid communications channel. The user must write to the bot first or create "
+                    "one with !setupcommunicationsroom.")
+                await send_text_to_room(
+                    self.client, self.room.room_id,
+                    f"User does not have a valid communications channel. The user must write to the bot first or create "
+                    f"one with !setupcommunicationsroom.",
+                )
+                return
+            else:
+                user.update_communications_room(room.room_id)
         await self.handle_message_send(text, user.room_id)
     async def relay_to_management_room(self):
         """Relay to the management room."""
@@ -224,6 +244,7 @@ class Media(object):
             # If we don't have the user details yet - create new instance
             user = User.create_new(self.store, self.event.sender)
 
+        # Update the communications channel to this room
         if user.room_id != self.room.room_id:
             user.update_communications_room(self.room.room_id)
 

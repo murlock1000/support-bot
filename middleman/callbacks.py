@@ -120,6 +120,12 @@ class Callbacks(object):
 
         # Ignore if it was not us joining the room
         if event.sender != self.client.user:
+            user = User.get_existing(self.store, event.sender)
+            if user:
+                if user.room_id == room.room_id:
+                    logger.info(f"User {user.user_id} left the primary communications channel room {room.room_id}. /"
+                                f"Unable to send messages to user until communications room is recreated.")
+                    user.update_communications_room(None)
             return
         logger.debug(event)
         # Ignore if we didn't join
@@ -289,12 +295,6 @@ class Callbacks(object):
 
     async def invite(self, room, event):
         """Callback for when an invitation is received. Join the room specified in the invite"""
-        # If ignoring old messages, ignore messages older than 5 minutes
-        if self.config.ignore_old_messages:
-            if (
-                    datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
-            ).total_seconds() > 300:
-                return
         if self.should_process(event.source.get("event_id")) is False:
             return
         logger.debug(f"Got invite to {room.room_id} from {event.sender}.")

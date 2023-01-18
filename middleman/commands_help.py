@@ -1,4 +1,4 @@
-AVAILABLE_COMMANDS = """message, claim, raise, close, reopen, opentickets, activeticket, addstaff"""
+AVAILABLE_COMMANDS = """message, claim, raise, close, reopen, opentickets, activeticket, addstaff, setupcommunicationsroom"""
 
 COMMAND_WRITE = """Sends a message to a room using the bot. Usage:
 
@@ -51,3 +51,10 @@ COMMAND_OPEN_TICKETS = """Lists all currently open tickets, or open tickets that
 
 `!opentickets (<user id>)`
 """
+
+COMMAND_SETUP_COMMUNICATIONS_ROOM = """Updates the user's communications room (DM between user and bot). 
+Selects any DM room that only the bot and the user are in. Or creates a new DM and invites the user if not found. Usage:
+
+`!setupcommunicationsroom <user id>`
+"""
+
