@@ -395,9 +395,9 @@ class Command(object):
                     )
 
                 # Kick staff from room after close
-                await kick_from_room(
-                    self.client, self.event.sender, self.room.room_id
-                )
+                #await kick_from_room(
+                #    self.client, self.event.sender, self.room.room_id
+                #)
             else:
                 logger.info(f"Ticket {ticket.id} is already closed")
                 await send_text_to_room(
