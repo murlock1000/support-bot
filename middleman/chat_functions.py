@@ -220,15 +220,17 @@ async def create_private_room(
             logger.exception(f"Failed to create a new DM for user {mxid} with error: {resp.status_code}")
         return resp
 
-
+def is_user_in_room(room:MatrixRoom, mxid:str) -> bool:
+    for user in room.users:
+        if user == mxid:
+            return True
+    for user in room.invited_users:
+        if user == mxid:
+            return True
+    return False
 def is_room_private_msg(room: MatrixRoom, mxid: str) -> bool:
     if room.member_count == 2:
-        for user in room.users:
-            if user == mxid:
-                return True
-        for user in room.invited_users:
-            if user == mxid:
-                return True
+        return is_user_in_room(room, mxid)
     return False
 def find_private_msg(client:AsyncClient, mxid: str) -> MatrixRoom:
     # Find if we already have a common room with user:

@@ -5,7 +5,7 @@ from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse, RoomCr
 
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
-    find_private_msg
+    find_private_msg, is_user_in_room
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
@@ -386,6 +386,11 @@ class Command(object):
                     self.client, self.room.room_id,
                     f"Closed Ticket {ticket.id}",
                 )
+                if self.room.room_id != self.config.management_room_id:
+                    await send_text_to_room(
+                        self.client, self.config.management_room_id,
+                        f"Closed Ticket {ticket.id}",
+                    )
 
                 # Kick staff from room after close
                 await kick_from_room(
@@ -398,44 +403,85 @@ class Command(object):
                     f"Ticket {ticket.id} is already closed",
                 )
 
-
+    @with_staff
     async def _reopen_ticket(self):
         """
-        Staff reopen the current ticket.
+        Staff reopen the current ticket, or specify and be reinvited to it.
         """
 
-        ticket: Ticket = Ticket.find_ticket_of_room(self.store, self.room)
-        if not ticket:
-            logger.warning(f"Could not find Ticket with ticket room {self.room.room_id} to reopen")
-            await send_text_to_room(
-                self.client, self.room.room_id,
-                f"Could not find Ticket room {self.room.room_id} to reopen",
-            )
-        else:
-            current_user_ticket_id = ticket.find_user_current_ticket_id()
-            if current_user_ticket_id is not None:
-                logger.warning(f"User already has Ticket open with ID {current_user_ticket_id} close it first to reopen this Ticket.")
+        if len(self.args) > 2:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_REOPEN)
+            return
+
+        # Find ticket by room or provided ID
+        if len(self.args) == 0:
+            ticket: Ticket = Ticket.find_ticket_of_room(self.store, self.room)
+            if not ticket:
+                logger.warning(f"Could not find Ticket with ticket room {self.room.room_id} to reopen")
                 await send_text_to_room(
                     self.client, self.room.room_id,
-                    f"User already has Ticket open with ID {current_user_ticket_id} close it first to reopen this Ticket.",
+                    f"Could not find Ticket room {self.room.room_id} to reopen",
                 )
                 return
-            if ticket.status == TicketStatus.CLOSED:
-                ticket.set_status(TicketStatus.OPEN)
-
-                ticket.userRep.set_user_current_ticket_id(ticket.user_id, ticket.id)
-
-                logger.info(f"Reopened Ticket {ticket.id}")
+        else:
+            ticket_id = self.args[0]
+            if not ticket_id.isnumeric():
+                logger.warning(f"Ticket ID must be a whole number")
                 await send_text_to_room(
                     self.client, self.room.room_id,
+                    f"Ticket ID must be a whole number",
+                )
+                return
+
+            ticket_id = int(ticket_id)
+            ticket = Ticket.get_existing(self.store, ticket_id)
+
+            if not ticket:
+                logger.warning(f"Ticket with ID {ticket_id} does not exist.")
+                await send_text_to_room(
+                    self.client, self.room.room_id,
+                    f"Ticket with ID {ticket_id} does not exist.",
+                )
+                return
+
+        current_user_ticket_id = ticket.find_user_current_ticket_id()
+        if current_user_ticket_id is not None:
+            logger.warning(f"User already has Ticket open with ID {current_user_ticket_id} close it first to reopen this Ticket.")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"User already has Ticket open with ID {current_user_ticket_id} close it first to reopen this Ticket.",
+            )
+            return
+        if ticket.status == TicketStatus.CLOSED:
+            ticket.set_status(TicketStatus.OPEN)
+            ticket.userRep.set_user_current_ticket_id(ticket.user_id, ticket.id)
+            logger.info(f"Reopened Ticket {ticket.id}")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Reopened Ticket {ticket.id}",
+            )
+            if self.room.room_id != self.config.management_room_id:
+                await send_text_to_room(
+                    self.client, self.config.management_room_id,
                     f"Reopened Ticket {ticket.id}",
                 )
-            else:
-                logger.info(f"Ticket {ticket.id} is already open")
+            if self.room.room_id != ticket.ticket_room_id:
                 await send_text_to_room(
-                    self.client, self.room.room_id,
-                    f"Ticket {ticket.id} is already open",
+                    self.client, ticket.ticket_room_id,
+                    f"Reopened Ticket {ticket.id}",
                 )
+
+            # Invite staff to the ticket room if not joined already
+            room = self.client.rooms.get(ticket.ticket_room_id, None)
+            if room and self.staff:
+                if not is_user_in_room(room, self.staff.user_id):
+                    await invite_to_room(self.client, self.staff.user_id, room.room_id)
+        else:
+            logger.info(f"Ticket {ticket.id} is already open")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Ticket {ticket.id} is already open",
+            )
 
     @with_staff
     async def _claim(self):

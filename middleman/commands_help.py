@@ -42,9 +42,10 @@ COMMAND_CLOSE = """Closes the ticket that belongs to the current room (no longer
 `!close`
 """
 
-COMMAND_REOPEN = """Reopens the ticket that belongs to the current room (starts relaying user communications to the ticket room). Usage:
+COMMAND_REOPEN = """Reopens the ticket that belongs to the current room (starts relaying user communications to the ticket room).
+If Ticket ID provided - reopens the specified Ticket and invites the staff to the Ticket room (if not in it yet). Usage:
 (In a Ticket room)
-`!reopen`
+`!reopen (<Ticked Index>)`
 """
 
 COMMAND_OPEN_TICKETS = """Lists all currently open tickets, or open tickets that are assigned to a specified staff member. Usage:
