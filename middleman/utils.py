@@ -66,6 +66,11 @@ def get_reply_msg(event: nio.Event, reply_to: Optional[str], replaces: Optional[
         if reply_section := _get_reply_msg(event):
             if any([reply_section.startswith(x) for x in ("!reply ", "<p>!reply ")]):
                 return reply_section
+def get_raise_msg(event: nio.Event, reply_to: Optional[str], replaces: Optional[str]) -> Optional[str]:
+    if reply_to or replaces:
+        if reply_section := _get_reply_msg(event):
+            if any([reply_section.startswith(x) for x in ("!raise ", "<p>!raise ")]):
+                return reply_section
 
 
 async def get_room_id(client: nio.AsyncClient, room: str, logger: logging.Logger) -> str:

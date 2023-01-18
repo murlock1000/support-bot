@@ -1,14 +1,16 @@
 import logging
+import re
 from typing import List
 
 # noinspection PyPackageRequirements
 from nio import RoomSendResponse, RoomSendError
 
+from middleman.bot_commands import Command
 from middleman.chat_functions import send_reaction, send_text_to_room
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
-from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg
+from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +44,29 @@ class Message(object):
         reply_to = get_in_reply_to(self.event)
         replaces = get_replaces(self.event)
 
-        logger.debug(f"a- {reply_to}: {replaces}")
 
         reply_section = get_reply_msg(self.event, reply_to, replaces)
+        raise_section = get_raise_msg(self.event, reply_to, replaces)
+
         if not reply_section:
-            logger.debug(
-                f"Skipping {self.event.event_id} which does not look like a reply"
-            )
-            return
+            if not raise_section:
+                logger.debug(
+                    f"Skipping {self.event.event_id} which does not look like a reply"
+                )
+                return
+            #raise_text = raise_section[raise_section.find("!raise ") + 7:]
+            #logger.debug(f"RAISE: {raise_text}")
+            if reply_to:
+                message = self.store.get_message_by_management_event_id(reply_to)
+                if message:
+                    reply_rx_pattern = re.compile(r".+(@[^\s]*)")
+                    match = reply_rx_pattern.match(self.event.body)
+
+                    if match:
+                        rx_id = match[1]  # Get the id from regex group
+                        command = Command(self.client, self.store, self.config, raise_section[1:7]+rx_id+raise_section[6:], self.room, self.event)
+                        await command.process()
+
         elif reply_to:
             # Send back to original sender
             message = self.store.get_message_by_management_event_id(reply_to)
