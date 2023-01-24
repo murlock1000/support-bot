@@ -5,7 +5,7 @@ from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse, RoomCr
 
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
-    find_private_msg, is_user_in_room
+    find_private_msg, is_user_in_room, send_shared_history_keys
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
@@ -395,9 +395,9 @@ class Command(object):
                     )
 
                 # Kick staff from room after close
-                #await kick_from_room(
-                #    self.client, self.event.sender, self.room.room_id
-                #)
+                await kick_from_room(
+                    self.client, self.event.sender, self.room.room_id
+                )
             else:
                 logger.info(f"Ticket {ticket.id} is already closed")
                 await send_text_to_room(
@@ -489,7 +489,11 @@ class Command(object):
             room = self.client.rooms.get(ticket.ticket_room_id, None)
             if room and self.staff:
                 if not is_user_in_room(room, self.staff.user_id):
-                    await invite_to_room(self.client, self.staff.user_id, room.room_id)
+                    resp = await invite_to_room(self.client, self.staff.user_id, room.room_id)
+
+                    if isinstance(resp, RoomInviteResponse):
+                        await send_shared_history_keys(self.client, room.room_id, [self.staff.user_id])
+
         else:
             logger.info(f"Ticket {ticket.id} is already open")
             await send_text_to_room(
@@ -528,6 +532,7 @@ class Command(object):
         response = await ticket.invite_to_ticket_room(self.client, self.staff.user_id)
 
         if isinstance(response, RoomInviteResponse):
+            await send_shared_history_keys(self.client, ticket.ticket_room_id, [self.staff.user_id])
             logger.debug(f"Invited staff to Ticket room successfully")
         else:
             await send_text_to_room(
