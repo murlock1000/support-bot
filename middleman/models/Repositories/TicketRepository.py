@@ -84,6 +84,10 @@ class TicketRepository(object):
         self.storage._execute("""
             SELECT user_room_id FROM Tickets WHERE id=?
         """, (ticket_id,))
+        ticket_room_id = self.storage.cursor.fetchone()
+        if ticket_room_id:
+            return ticket_room_id[0]
+        return ticket_room_id
 
     def get_all_fields(self, ticket_id:int):
         self.storage._execute("""

@@ -52,6 +52,15 @@ class UserRepository(object):
             return current_ticket_id[0]
         return current_ticket_id
 
+    def get_user_current_chat_room_id(self, user_id: str):
+        self.storage._execute("""
+            SELECT current_chat_room_id FROM Users WHERE user_id=?
+        """, (user_id,))
+        current_chat_room_id = self.storage.cursor.fetchone()
+        if current_chat_room_id:
+            return current_chat_room_id[0]
+        return current_chat_room_id
+
     def get_all_fields(self, user_id:str):
         self.storage._execute("""
             select user_id, room_id, current_ticket_id from Users where user_id = ?;

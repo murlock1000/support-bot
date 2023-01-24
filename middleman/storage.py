@@ -14,7 +14,7 @@ from nio import MegolmEvent
 #
 # When a migration is performed, the `migration_version` table should be incremented.
 
-latest_migration_version = 7
+latest_migration_version = 8
 
 logger = logging.getLogger(__name__)
 
