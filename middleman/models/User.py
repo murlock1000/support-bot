@@ -13,6 +13,7 @@ class User(object):
         self.user_id =              fields['user_id']
         self.room_id =              fields['room_id']
         self.current_ticket_id =    fields['current_ticket_id']
+        self.current_chat_room_id = fields['current_chat_room_id']
 
     @staticmethod
     def get_existing(storage:Storage, user_id:str):
@@ -36,3 +37,7 @@ class User(object):
     def update_current_ticket_id(self, current_ticket_id: int):
         self.userRep.set_user_current_ticket_id(self.user_id, current_ticket_id)
         self.current_ticket_id = current_ticket_id
+
+    def update_current_chat_room_id(self, current_chat_room_id: str):
+        self.userRep.set_user_current_chat_room_id(self.user_id, current_chat_room_id)
+        self.current_chat_room_id = current_chat_room_id

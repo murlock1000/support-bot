@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
-from typing import Union, Dict, Iterator
+from enum import Enum
+from typing import Union, Dict, Iterator, Pattern
 
 from commonmark import commonmark
 # noinspection PyPackageRequirements
@@ -20,10 +21,20 @@ from nio import (
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
 
+#from middleman.config import Config
+#from middleman.models.Chat import chat_room_name_pattern
+#from middleman.models.Ticket import ticket_name_pattern
 from middleman.utils import get_room_id, with_ratelimit
 
 logger = logging.getLogger(__name__)
 
+
+class RoomType(Enum):
+    ManagementRoom  = 0
+    LoggingRoom     = 1
+    UserRoom        = 2
+    TicketRoom      = 3
+    ChatRoom        = 4
 
 async def send_text_to_room(
     client: AsyncClient, room: str, message: str, notice: bool = True, markdown_convert: bool = True,
@@ -200,6 +211,26 @@ async def send_media_to_room(
     except (LocalProtocolError, SendRetryError) as ex:
         logger.exception(f"Unable to send media response to {room_id}")
         return f"Failed to send media: {ex}"
+
+
+
+# Room type determined by the room name in most cases
+def determine_room_type(
+        management_room_id:str, matrix_logging_room:str,
+        chat_room_name_pattern:Pattern[str], ticket_name_pattern:Pattern[str],
+        room:MatrixRoom
+) -> RoomType:
+
+    if room.room_id == management_room_id:
+        return RoomType.ManagementRoom
+    elif room.room_id == matrix_logging_room:
+        return RoomType.LoggingRoom
+    elif chat_room_name_pattern.match(room.name):
+        return RoomType.ChatRoom
+    elif ticket_name_pattern.match(room.name):
+        return RoomType.TicketRoom
+    else:
+        return RoomType.UserRoom
 
 async def create_private_room(
         client: AsyncClient, mxid: str, roomname: str

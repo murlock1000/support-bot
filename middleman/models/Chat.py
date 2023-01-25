@@ -10,6 +10,8 @@ import re
 
 logger = logging.getLogger(__name__)
 
+chat_room_name_pattern = re.compile(r"^Chat:")
+
 class Chat(object):
 
     chat_cache = {}
@@ -50,7 +52,6 @@ class Chat(object):
         response = await Chat.create_chat_room(client, user_id)
 
         if isinstance(response, RoomCreateError):
-            logger.error(f"Failed to create Room: {response.status_code}")
             return response
 
         chat_room_id = response
@@ -59,7 +60,6 @@ class Chat(object):
         try:
             storage.repositories.chatRep.create_chat(user_id, chat_room_id)
         except Exception as e:
-            logger.error(f"Failed to store Chat with error: {e}")
             return e
 
         chat = Chat(storage, chat_room_id)

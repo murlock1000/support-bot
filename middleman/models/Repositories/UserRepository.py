@@ -52,6 +52,11 @@ class UserRepository(object):
             return current_ticket_id[0]
         return current_ticket_id
 
+    def set_user_current_chat_room_id(self, user_id:str, current_chat_room_id:Union[str, None]):
+        self.storage._execute("""
+            UPDATE Users SET current_chat_room_id= ? WHERE user_id=?
+        """, (current_chat_room_id, user_id))
+
     def get_user_current_chat_room_id(self, user_id: str):
         self.storage._execute("""
             SELECT current_chat_room_id FROM Users WHERE user_id=?

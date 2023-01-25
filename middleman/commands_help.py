@@ -18,13 +18,13 @@ For example:
 `!claim 5`
 """
 
-COMMAND_RAISE = """Raise a ticket for a user with a specified name. Usage:
+COMMAND_RAISE = """Raise a ticket for a user with a specified name or for the replied to message sender. Usage:
 
+Reply:
+`!raise <ticket name>`
+
+Standalone: 
 `!raise <user id> <ticket name>`
-
-For example:
-
-`!claim @test:server.com Important issue`
 """
 
 COMMAND_ADD_STAFF = """Add staff with specified name. Usage:
@@ -57,5 +57,14 @@ COMMAND_SETUP_COMMUNICATIONS_ROOM = """Updates the user's communications room (D
 Selects any DM room that only the bot and the user are in. Or creates a new DM and invites the user if not found. Usage:
 
 `!setupcommunicationsroom <user id>`
+"""
+
+COMMAND_CHAT = """Create or join an existing chat for a user with a specified name or for the replied to message sender. Usage:
+
+Reply:
+`!chat
+
+Standalone: 
+`!chat <user id>`
 """
 

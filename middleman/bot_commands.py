@@ -6,6 +6,7 @@ from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse, RoomCr
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
     find_private_msg, is_user_in_room, send_shared_history_keys
+from middleman.models.Chat import Chat
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
@@ -66,8 +67,8 @@ class Command(object):
             await self._add_staff()
         elif self.command.startswith("setupcommunicationsroom"):
             await self._setup_communications_room()
-        elif self.command.startswith("sharekeys"):
-            await self._share_keys()
+        elif self.command.startswith("chat"):
+            await self._chat()
         else:
             await self._unknown_command()
 
@@ -306,9 +307,9 @@ class Command(object):
         user = User.get_existing(self.store, user_id)
 
         if not user:
-            logger.warning(f"Failed to raise Ticket: {user} has not texted the bot yet")
+            logger.warning(f"Failed to raise Ticket: {user_id} has not texted the bot yet")
             await send_text_to_room(
-                self.client, self.room.room_id, f"Failed to raise Ticket: {user} has not texted the bot yet",
+                self.client, self.room.room_id, f"Failed to raise Ticket: {user_id} has not texted the bot yet",
             )
             return
 
@@ -363,6 +364,82 @@ class Command(object):
             return
 
     @with_staff
+    async def _chat(self):
+        """
+        Staff create a chat with user.
+        """
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CHAT)
+            return
+
+        user_id = self.args[0]
+
+        # Find User by user_id
+        user = User.get_existing(self.store, user_id)
+
+        if not user:
+            logger.warning(f"Failed to chat with {user_id}, user has not texted the bot yet")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to chat with {user_id}, user has not texted the bot yet",
+            )
+            return
+
+        # Fetch existing or create new Chat for user:
+        if user.current_ticket_id:
+            chat = Chat.get_existing(self.store, user.current_ticket_id)
+            if not chat:
+                logger.warning(f"Unable to find chat with ID {user.current_ticket_id} in DB of {user_id}")
+                await send_text_to_room(
+                    self.client, self.room.room_id, f"Unable to find chat with ID {user.current_ticket_id} in DB of {user_id}",
+                )
+                return
+        else:
+            response = await Chat.create_new(self.store, self.client, user.user_id)
+            if isinstance(response, RoomCreateError):
+                logger.error(f"Failed to create Room: {response.status_code}")
+                await send_text_to_room(
+                    self.client, self.room.room_id, f"Failed to raise Ticket: {user} has not texted the bot yet",
+                )
+                return
+            elif isinstance(response, Exception):
+                logger.error(f"Failed to store Chat with error: {response}")
+                return
+
+            chat = response
+            user.update_current_chat_room_id(chat.chat_room_id)
+
+            logger.info(f"Created Chat {chat.chat_room_id} for {chat.user_id}")
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Created Chat {chat.chat_room_id} for {chat.user_id}",
+            )
+            if self.room.room_id != self.config.management_room_id:
+                await send_text_to_room(
+                    self.client, self.config.management_room_id,
+                    f"Created Chat {chat.chat_room_id} for {chat.user_id}",
+                )
+
+        # Claim Chat for staff
+        chat.claim_chat(self.staff.user_id)
+
+        # Invite staff to the Chat room
+        response = await chat.invite_to_chat_room(self.client, self.staff.user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            logger.info(f"Invited staff {self.staff.user_id} to chat room {chat.chat_room_id}")
+        else:
+            logger.info(f"Failed to invite staff {self.staff.user_id} to chat room {chat.chat_room_id}")
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Failed to invite staff {self.staff.user_id} to chat room {chat.chat_room_id}",
+            )
+            return
+
+    @with_staff
+    async def _close_room(self):
+        pass
+
+    @with_staff
     async def _close_ticket(self):
         """
         Staff close the current ticket.
@@ -404,18 +481,6 @@ class Command(object):
                     self.client, self.room.room_id,
                     f"Ticket {ticket.id} is already closed",
                 )
-
-    @with_staff
-    async def _share_keys(self):
-
-        user_id = self.event.sender
-        device_id = self.args[0]
-        device = self.client.device_store[user_id][device_id]
-        self.client.verify_device(device)
-        for request in self.client.get_active_key_requests(
-            user_id, device_id):
-            res = self.client.continue_key_share(request)
-
 
     @with_staff
     async def _reopen_ticket(self):
