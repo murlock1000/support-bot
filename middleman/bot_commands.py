@@ -6,7 +6,7 @@ from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse, RoomCr
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
     find_private_msg, is_user_in_room, send_shared_history_keys
-from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel
+from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from middleman.handlers.MessagingHandler import MessagingHandler
 from middleman.models.Chat import Chat
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
@@ -69,7 +69,7 @@ class Command(object):
         elif self.command.startswith("raise"):
             await self._raise_ticket()
         elif self.command.startswith("close"):
-            await self._close_ticket()
+            await self._close_room()
         elif self.command.startswith("reopen"):
             await self._reopen_ticket()
         elif self.command.startswith("opentickets"):
@@ -128,6 +128,7 @@ class Command(object):
             "activeticket":commands_help.COMMAND_ACTIVE_TICKET,
             "addstaff":commands_help.COMMAND_ADD_STAFF,
             "setupcommunicationsroom":commands_help.COMMAND_SETUP_COMMUNICATIONS_ROOM,
+            "chat":commands_help.COMMAND_CHAT,
 
         }
         topic = self.args[0]
@@ -394,10 +395,10 @@ class Command(object):
             return
 
         # Fetch existing or create new Chat for user:
-        if user.current_ticket_id:
-            chat = Chat.get_existing(self.store, user.current_ticket_id)
+        if user.current_chat_room_id:
+            chat = Chat.get_existing(self.store, user.current_chat_room_id)
             if not chat:
-                msg = f"Unable to find chat with ID {user.current_ticket_id} in DB of {user_id}"
+                msg = f"Unable to find chat with ID {user.current_chat_room_id} in DB of {user_id}"
                 logger.warning(msg)
                 await send_text_to_room(self.client, self.room.room_id, msg,)
                 return
@@ -438,7 +439,37 @@ class Command(object):
             return
 
     async def _close_room(self):
-        pass
+        if self.handler.room_type == RoomType.ChatRoom:
+            await self._close_chat()
+        else:
+            await self._close_ticket()
+
+    async def _close_chat(self):
+        """
+        Staff close the current Chat.
+        """
+
+        chat:Chat = Chat.find_chat_of_room(self.store, self.room)
+        if not chat:
+            msg = f"Could not find Chat of room {self.room.room_id} to close"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+            return
+        current_user_chat_room_id = chat.find_user_current_chat_room_id()
+
+        if current_user_chat_room_id == chat.chat_room_id:
+            chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
+
+        msg = f"Closed Chat {chat.chat_room_id}"
+        logger.info(msg)
+        await send_text_to_room(self.client, self.room.room_id, msg,)
+        if self.room.room_id != self.config.management_room_id:
+            await send_text_to_room(self.client, self.config.management_room_id, msg,)
+        # Kick staff from room after close
+        await kick_from_room(
+            self.client, self.event.sender, self.room.room_id
+        )
 
     async def _close_ticket(self):
         """

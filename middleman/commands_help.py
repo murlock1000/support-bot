@@ -1,4 +1,5 @@
-AVAILABLE_COMMANDS = """message, claim, raise, close, reopen, opentickets, activeticket, addstaff, setupcommunicationsroom"""
+AVAILABLE_COMMANDS = """message, claim, raise, close, reopen, opentickets, \
+activeticket, addstaff, setupcommunicationsroom, chat"""
 
 COMMAND_WRITE = """Sends a message to a room using the bot. Usage:
 

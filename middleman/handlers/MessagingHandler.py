@@ -98,7 +98,7 @@ class MessagingHandler(object):
             self.handler.update_state_ticket(self.handler.user.current_ticket_id)
             return self.handler.ticket.ticket_room_id
         elif self.handler.user.current_chat_room_id:
-            self.handler.update_state_ticket(self.handler.user.current_chat_room_id)
+            self.handler.update_state_chat(self.handler.user.current_chat_room_id)
             return self.handler.chat.chat_room_id
         else:
             return self.config.management_room
