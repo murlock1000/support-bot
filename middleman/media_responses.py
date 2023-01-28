@@ -5,6 +5,9 @@ from typing import List
 from nio import RoomSendResponse, RoomSendError
 
 from middleman.chat_functions import send_media_to_room, send_reaction, send_text_to_room, find_private_msg
+from middleman.handlers.EventStateHandler import EventStateHandler, RoomType, LogLevel
+from middleman.handlers.MessagingHandler import MessagingHandler
+from middleman.models.Chat import Chat
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
@@ -21,7 +24,7 @@ media_name = {
 
 
 class Media(object):
-    def __init__(self, client, store, config, media_type, body, media_url, media_file, media_info, room, event, ticket:Ticket=None):
+    def __init__(self, client, store, config, media_type, body, media_url, media_file, media_info, room, event):
         """Initialize a new Media
 
         Args:
@@ -55,7 +58,8 @@ class Media(object):
         self.media_url = media_url
         self.media_file = media_file
         self.media_info = media_info
-        self.ticket = ticket
+        self.handler = EventStateHandler(client, store, config, room, event)
+        self.messageHandler = MessagingHandler(self.handler)
 
     async def handle_management_room_media(self):
         reply_to = get_in_reply_to(self.event)
@@ -122,16 +126,7 @@ class Media(object):
         else:
             logger.debug(f"Skipping {self.event.event_id} reply {media_name[self.media_type]}")
 
-    def is_mention_only_room(self, identifiers: List[str], is_named: bool) -> bool:
-        """
-        Check if this room is only if mentioned.
-        """
-        if self.config.mention_only_always_for_named and is_named:
-            return True
-        for identifier in identifiers:
-            if identifier in self.config.mention_only_rooms:
-                return True
-        return False
+
 
     async def process(self):
         """
@@ -139,14 +134,31 @@ class Media(object):
         - if management room, identify replies and forward back to original messages.
         - anything else, relay to management room.
         """
-        if self.room.room_id == self.config.management_room_id:
-            await self.handle_management_room_media()
-        elif self.ticket:
-            await self.handle_ticket_room_media()
-        else:
-            await self.relay_to_management_room()
 
-    def anonymise_text(self, anonymise):
+        # Update required state based on room type
+        if not await self.handler.find_room_state():
+            return
+
+        msg = "Bot received media for {} | "\
+            f"{self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
+            f"alias: {self.room.canonical_alias}): {self.body}"
+
+        # Combined message form
+        msg = msg.format(self.handler.for_room)
+        self.handler.log_console(msg, LogLevel.DEBUG)
+
+
+        # Handle different scenarios
+        if self.handler.room_type == RoomType.ManagementRoom:
+            await self.handle_management_room_media()
+        elif self.handler.room_type == RoomType.TicketRoom:
+            await self.handle_ticket_room_media()
+        elif self.handler.room_type == RoomType.ChatRoom:
+            await self.handle_chat_room_media()
+        else:
+            await self.relay_from_user()
+
+    def anonymise_text(self, anonymise: bool) -> str:
         if anonymise:
             text = None
         else:
@@ -189,70 +201,41 @@ class Media(object):
     async def handle_ticket_room_media(self):
         """Relay staff Ticket message to the client communications room."""
 
-        #TODO Abstract Duplicate Code
-        if self.ticket.status == TicketStatus.CLOSED:
-            logger.debug(
-                f"Skipping message, since Ticket is closed. Reopen it first."
-            )
-            await send_text_to_room(
-                self.client, self.room.room_id,
-                f"Skipping message, since Ticket is closed. Reopen it first.",
-            )
+        if not await self.messageHandler.handle_ticket_message():
             return
 
         text = self.anonymise_text(True)
-        user = User.get_existing(self.store, self.ticket.user_id)
-        if user.current_ticket_id != self.ticket.id:
-            logger.debug(
-                f"Skipping message, there are multiple open Tickets and this Ticket is not active \
-                ({user.current_ticket_id} is active). First close {user.current_ticket_id} and then reopen this Ticket."
-            )
-            await send_text_to_room(
-                self.client, self.room.room_id,
-                f"Skipping message, there are multiple open Tickets and this Ticket is not active \
-                 ({user.current_ticket_id} is active). First close {user.current_ticket_id} and then reopen this Ticket."
-            )
+        await self.handle_message_send(text, self.handler.user.room_id)
+
+    async def handle_chat_room_media(self):
+        """Relay staff Chat message to the client communications room."""
+
+        if not await self.messageHandler.handle_chat_message():
             return
 
-        if not user.room_id:
-            room = find_private_msg(self.client, self.ticket.user_id)
-            if not room:
-                logger.warning(
-                    "User does not have a valid communications channel. The user must write to the bot first or create "
-                    "one with !setupcommunicationsroom.")
-                await send_text_to_room(
-                    self.client, self.room.room_id,
-                    f"User does not have a valid communications channel. The user must write to the bot first or create "
-                    f"one with !setupcommunicationsroom.",
-                )
-                return
-            else:
-                user.update_communications_room(room.room_id)
-        await self.handle_message_send(text, user.room_id)
-    async def relay_to_management_room(self):
+        text = self.anonymise_text(True)
+        await self.handle_message_send(text, self.handler.user.room_id)
+
+    async def relay_from_user(self):
         """Relay to the management room."""
+
         # First check if we want to relay this
-        if self.is_mention_only_room([self.room.canonical_alias, self.room.room_id], self.room.is_named):
+        if self.handler.is_mention_only_room([self.room.canonical_alias, self.room.room_id], self.room.is_named):
             # skip media in mention only rooms for now
             logger.debug(f"Skipping {media_name[self.media_type]} %s in room %s as it's set to "
                          f"only relay on mention and mentions are not supported for media ",
                          self.event.event_id, self.room.room_id)
             return
 
-        user = User.get_existing(self.store, self.event.sender)
-        if not user:
-            # If we don't have the user details yet - create new instance
-            user = User.create_new(self.store, self.event.sender)
+        # Update state for different scenarios and get room id to relay message to.
+        room_id = await self.messageHandler.setup_relay()
 
-        # Update the communications channel to this room
-        if user.room_id != self.room.room_id:
-            user.update_communications_room(self.room.room_id)
-
-
-        if user.current_ticket_id:
-            ticket = Ticket.get_existing(self.store, user.current_ticket_id)
+        # Handle different relaying scenarios
+        if self.handler.ticket:
             text = self.anonymise_text(True)
-            await self.handle_message_send(text, ticket.ticket_room_id)
+        elif self.handler.user.current_chat_room_id:
+            text = self.anonymise_text(True)
         else:
             text = self.anonymise_text(self.config.anonymise_senders)
-            await self.handle_message_send(text, self.config.management_room)
+        await self.handle_message_send(text, room_id)
+

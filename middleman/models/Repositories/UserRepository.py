@@ -68,7 +68,7 @@ class UserRepository(object):
 
     def get_all_fields(self, user_id:str):
         self.storage._execute("""
-            select user_id, room_id, current_ticket_id from Users where user_id = ?;
+            select user_id, room_id, current_ticket_id, current_chat_room_id from Users where user_id = ?;
         """, (user_id,))
         row = self.storage.cursor.fetchone()
 
@@ -76,4 +76,5 @@ class UserRepository(object):
                 "user_id": row[0],
                 "room_id": row[1],
                 "current_ticket_id": row[2],
+                "current_chat_room_id": row[3],
             }

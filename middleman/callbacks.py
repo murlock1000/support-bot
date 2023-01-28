@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from datetime import datetime
 
 # noinspection PyPackageRequirements
@@ -18,7 +17,6 @@ from middleman.utils import with_ratelimit
 
 from middleman.models.Ticket import Ticket, ticket_name_pattern
 from middleman.models.User import User
-from middleman.models.Staff import Staff
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +133,7 @@ class Callbacks(object):
         # Get the user who invited the bot
         room_creator = User.get_existing(self.store, room.creator)
         if not room_creator:
+            # Create new User entry if doesn't exist yet
             room_creator = User.create_new(self.store, room.creator)
 
         logger.debug(f"Support bot invited by: {room_creator.user_id}")
@@ -196,15 +195,6 @@ class Callbacks(object):
         if msg.startswith(" * "):
             msg = msg[3:]
 
-        # Check if this is a ticket room
-        ticket = Ticket.find_ticket_of_room(self.store, room)
-
-        logger.debug(
-            f"Bot message received for room {room.display_name} | "
-            f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
-            f"alias: {room.canonical_alias}): {msg}"
-        )
-
         # Process as message if in a public room without command prefix
         # TODO Implement check of named commands using an array
         has_command_prefix = msg.startswith(self.command_prefix) or msg.startswith("!message")
@@ -216,11 +206,11 @@ class Callbacks(object):
                 # Remove the command prefix
                 msg = msg[len(self.command_prefix):]
 
-            command = Command(self.client, self.store, self.config, msg, room, event, ticket)
+            command = Command(self.client, self.store, self.config, msg, room, event)
             await command.process()
         else:
             # General message listener
-            message = Message(self.client, self.store, self.config, msg, room, event, ticket)
+            message = Message(self.client, self.store, self.config, msg, room, event)
             await message.process()
 
     async def media(self, room, event):
@@ -264,28 +254,6 @@ class Callbacks(object):
 
         # Extract media info
         media_info = event.source.get("content").get("info")
-
-        # Check if this is a ticket room
-        ticket = Ticket.find_ticket_of_room(self.store, room)
-
-        if ticket:
-            logger.debug(
-                f"Bot media received for Ticket #{ticket.id} in room {room.display_name} | "
-                f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
-                f"alias: {room.canonical_alias}): {body}"
-            )
-            # General media listener for ticket room message relaying
-            media = Media(
-                self.client, self.store, self.config, msgtype, body, media_url, media_file, media_info, room, event, ticket,
-            )
-            await media.process()
-            return
-
-        logger.debug(
-            f"Bot media received for room {room.display_name} | "
-            f"{room.user_name(event.sender)} (named: {room.is_named}, name: {room.name}, "
-            f"alias: {room.canonical_alias}): {body}"
-        )
 
         # General media listener
         media = Media(
