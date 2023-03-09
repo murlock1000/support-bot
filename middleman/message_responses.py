@@ -2,12 +2,16 @@ import logging
 import re
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError
+from nio import RoomSendResponse, RoomSendError, AsyncClient
+from nio.rooms import MatrixRoom
+from nio.events.room_events import RoomMessageText
 
 from middleman.bot_commands import Command
 from middleman.chat_functions import send_reaction, send_text_to_room
+from middleman.config import Config
 from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from middleman.handlers.MessagingHandler import MessagingHandler
+from middleman.storage import Storage
 from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
 logger = logging.getLogger(__name__)
@@ -30,12 +34,12 @@ class Message(object):
 
             event (nio.events.room_events.RoomMessageText): The event defining the message
         """
-        self.client = client
-        self.store = store
-        self.config = config
-        self.message_content = message_content
-        self.room = room
-        self.event = event
+        self.client: AsyncClient = client
+        self.store: Storage = store
+        self.config: Config = config
+        self.message_content: str = message_content
+        self.room:MatrixRoom  = room
+        self.event: RoomMessageText = event
         self.handler = EventStateHandler(client, store, config, room, event)
         self.messageHandler = MessagingHandler(self.handler)
 
