@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import importlib
 import json
 import logging
@@ -5,6 +8,9 @@ from dataclasses import asdict
 from typing import Optional, List
 # noinspection PyPackageRequirements
 from nio import MegolmEvent
+
+if TYPE_CHECKING:
+    from middleman.models.Repositories.Repositories import Repositories
 
 # The latest migration version of the database.
 #
@@ -14,7 +20,7 @@ from nio import MegolmEvent
 #
 # When a migration is performed, the `migration_version` table should be incremented.
 
-latest_migration_version = 8
+latest_migration_version = 9
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +59,8 @@ class Storage(object):
 
         logger.info(f"Database initialization of type '{self.db_type}' complete")
 
-    # Can't set type here beforehand, since it would cause circular import
-    def set_repositories(self, repositories):
-        self.repositories = repositories
+    def set_repositories(self, repositories: Repositories):
+        self.repositories:Repositories = repositories
 
     @staticmethod
     def _get_database_connection(database_type: str, connection_string: str):
