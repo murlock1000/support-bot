@@ -11,6 +11,7 @@ from middleman.chat_functions import send_reaction, send_text_to_room
 from middleman.config import Config
 from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from middleman.handlers.MessagingHandler import MessagingHandler
+from middleman.models.IncomingEvent import IncomingEvent
 from middleman.storage import Storage
 from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
@@ -201,7 +202,12 @@ class Message(object):
         elif self.handler.room_type == RoomType.ChatRoom:
             await self.handle_chat_room_message()
         else:
+            # Default - message from user
             await self.relay_from_user()
+
+    def save_incoming_event(self):
+        incoming_event = IncomingEvent(self.store, self.handler.user.user_id, self.room.room_id, self.event.event_id)
+        incoming_event.store_incoming_event()
 
     def anonymise_text(self, anonymise: bool) -> str:
         if anonymise:
@@ -211,24 +217,29 @@ class Message(object):
                    f"{self.message_content}".replace("\n", "  \n")
         return text
 
-    async def handle_message_send(self, text, room):
+    async def send_message_to_room(self, text, room):
         response = await send_text_to_room(self.client, room, text, False)
         if type(response) == RoomSendResponse and response.event_id:
-            self.store.store_message(
-                self.event.event_id,
-                response.event_id,
-                self.room.room_id,
-            )
-            logger.info("Message %s relayed to the management room", self.event.event_id)
+            try:
+                self.store.store_message(
+                    self.event.event_id,
+                    response.event_id,
+                    self.room.room_id,
+                )
+            except:
+                # When cloning messages after creating a new ticket room - messages will be sent again with identical event ids.
+                pass
+            logger.info("Message %s relayed to room %s", self.event.event_id, self.room.room_id)
         else:
-            logger.error("Failed to relay message %s to the management room", self.event.event_id)
+            logger.error("Failed to relay message %s to room %s", self.event.event_id, self.room.room_id)
+            
     async def handle_ticket_room_message(self):
         """Relay staff Ticket message to the client communications room."""
         if not await self.messageHandler.handle_ticket_message():
             return
 
         text = self.anonymise_text(True)
-        await self.handle_message_send(text, self.handler.user.room_id)
+        await self.send_message_to_room(text, self.handler.user.room_id)
 
     async def handle_chat_room_message(self):
         """Relay staff Chat message to the client communications room."""
@@ -236,10 +247,10 @@ class Message(object):
             return
 
         text = self.anonymise_text(True)
-        await self.handle_message_send(text, self.handler.user.room_id)
+        await self.send_message_to_room(text, self.handler.user.room_id)
 
     async def relay_from_user(self):
-        """Relay to the management room."""
+        """Relay to appropriate room (Ticket/chat/management)."""
 
         # First check if we want to relay this
         if self.handler.is_mention_only_room([self.room.canonical_alias, self.room.room_id], self.room.is_named):
@@ -262,5 +273,7 @@ class Message(object):
         elif self.handler.user.current_chat_room_id:
             text = self.anonymise_text(True)
         else:
+            # Save the message event id into storage, to be sent to a ticket room later
+            self.save_incoming_event()
             text = self.anonymise_text(self.config.anonymise_senders)
-        await self.handle_message_send(text, room_id)
+        await self.send_message_to_room(text, room_id)

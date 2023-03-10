@@ -8,6 +8,7 @@ from middleman.chat_functions import send_media_to_room, send_reaction, send_tex
 from middleman.handlers.EventStateHandler import EventStateHandler, RoomType, LogLevel
 from middleman.handlers.MessagingHandler import MessagingHandler
 from middleman.models.Chat import Chat
+from middleman.models.IncomingEvent import IncomingEvent
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
@@ -156,7 +157,12 @@ class Media(object):
         elif self.handler.room_type == RoomType.ChatRoom:
             await self.handle_chat_room_media()
         else:
+            # Default - message from user
             await self.relay_from_user()
+            
+    def save_incoming_event(self):
+        incoming_event = IncomingEvent(self.store, self.handler.user.user_id, self.room.room_id, self.event.event_id)
+        incoming_event.store_incoming_event()
 
     def anonymise_text(self, anonymise: bool) -> str:
         if anonymise:
@@ -166,14 +172,14 @@ class Media(object):
                    f"sent {media_name[self.media_type]} {self.body}:"
         return text
 
-    async def handle_message_send(self, text, room_id):
+    async def send_message_to_room(self, text, room_id):
         sender_notify_event_id = None
         if text:
             response = await send_text_to_room(self.client, room_id, text, notice=True)
             sender_notify_event_id = response.event_id
             if type(response) != RoomSendResponse or not response.event_id:
-                logger.error(f"Failed to relay {media_name[self.media_type]} %s to the "
-                         f"management room", self.event.event_id)
+                logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
+                         f"room {self.handler.user.room_id}")
                 return
 
         response = await send_media_to_room(
@@ -188,15 +194,19 @@ class Media(object):
         )
 
         if type(response) == RoomSendResponse and response.event_id:
-            self.store.store_message(
-                self.event.event_id,
-                response.event_id,
-                room_id,
-            )
-            logger.info(f"{media_name[self.media_type]} %s relayed to the management room", self.event.event_id)
+            try:
+                self.store.store_message(
+                    self.event.event_id,
+                    response.event_id,
+                    room_id,
+                )
+            except:
+                # When cloning messages after creating a new ticket room - messages will be sent again with identical event ids.
+                pass
+            logger.info(f"{media_name[self.media_type]} {self.event.event_id} relayed to room {self.handler.user.room_id}")
         else:
-            logger.error(f"Failed to relay {media_name[self.media_type]} %s to the "
-                         f"management room", self.event.event_id)
+            logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
+                         f"room {self.handler.user.room_id}")
 
     async def handle_ticket_room_media(self):
         """Relay staff Ticket message to the client communications room."""
@@ -205,7 +215,7 @@ class Media(object):
             return
 
         text = self.anonymise_text(True)
-        await self.handle_message_send(text, self.handler.user.room_id)
+        await self.send_message_to_room(text, self.handler.user.room_id)
 
     async def handle_chat_room_media(self):
         """Relay staff Chat message to the client communications room."""
@@ -214,10 +224,10 @@ class Media(object):
             return
 
         text = self.anonymise_text(True)
-        await self.handle_message_send(text, self.handler.user.room_id)
+        await self.send_message_to_room(text, self.handler.user.room_id)
 
     async def relay_from_user(self):
-        """Relay to the management room."""
+        """Relay to appropriate room (Ticket/chat/management)."""
 
         # First check if we want to relay this
         if self.handler.is_mention_only_room([self.room.canonical_alias, self.room.room_id], self.room.is_named):
@@ -236,6 +246,8 @@ class Media(object):
         elif self.handler.user.current_chat_room_id:
             text = self.anonymise_text(True)
         else:
+            # Save the message event id into storage, to be sent to a ticket room later
+            self.save_incoming_event()
             text = self.anonymise_text(self.config.anonymise_senders)
-        await self.handle_message_send(text, room_id)
+        await self.send_message_to_room(text, room_id)
 

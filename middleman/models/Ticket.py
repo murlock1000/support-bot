@@ -1,3 +1,4 @@
+from typing import List
 from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse, MatrixRoom, Response
 
 from middleman.chat_functions import invite_to_room, create_room, send_text_to_room
@@ -98,9 +99,9 @@ class Ticket(object):
         else:
             return None
 
-    async def create_ticket_room(self, client:AsyncClient):
+    async def create_ticket_room(self, client:AsyncClient, invite:List[str] = []):
         # Request a Ticket reply room to be created.
-        response = await create_room(client, f"Ticket #{self.id} ({self.ticket_name})")
+        response = await create_room(client, f"Ticket #{self.id} ({self.ticket_name})", invite)
 
         if isinstance(response, RoomCreateResponse):
             self.ticket_room_id = response.room_id

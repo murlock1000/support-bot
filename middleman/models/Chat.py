@@ -1,3 +1,4 @@
+from typing import List
 from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse, MatrixRoom, Response, RoomCreateError
 
 from middleman.chat_functions import invite_to_room, create_room, send_text_to_room
@@ -88,9 +89,9 @@ class Chat(object):
             return None
 
     @staticmethod
-    async def create_chat_room(client:AsyncClient, user_id:str):
+    async def create_chat_room(client:AsyncClient, user_id:str, invite:List[str] = []):
         # Request a Chat room to be created.
-        response = await create_room(client, f"Chat: {user_id})")
+        response = await create_room(client, f"Chat: {user_id})", invite)
 
         if isinstance(response, RoomCreateResponse):
             return response.room_id

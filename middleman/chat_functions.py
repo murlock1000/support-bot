@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Union, Dict, Iterator
+from typing import List, Union, Dict, Iterator
 
 from commonmark import commonmark
 # noinspection PyPackageRequirements
@@ -252,7 +252,7 @@ def find_private_msg(client:AsyncClient, mxid: str) -> MatrixRoom:
     return msg_room
 
 async def create_room(
-        client: AsyncClient, roomname: str
+        client: AsyncClient, roomname: str, invite:List[str] = []
 ) -> Union[RoomCreateResponse, RoomCreateError]:
     """
     :param roomname: The room name
@@ -260,6 +260,7 @@ async def create_room(
     """
     resp = await with_ratelimit(client.room_create)(
         name=roomname,
+        invite=invite,
     )
     if isinstance(resp, RoomCreateResponse):
         logger.debug(f"Created a new room with roomID: {resp.room_id}")

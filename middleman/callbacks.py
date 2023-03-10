@@ -39,6 +39,7 @@ class Callbacks(object):
         self.command_prefix = config.command_prefix
         self.received_events = []
         self.welcome_message_sent_to_room = []
+        self.rooms_pending = {}
 
     async def decrypted_callback(self, room_id: str, event: RoomMessageText):
         if isinstance(event, RoomMessageText):
@@ -126,6 +127,17 @@ class Callbacks(object):
                     user.update_communications_room(None)
             return
         logger.debug(event)
+        
+        # Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
+        if event.membership == 'invite' and room.room_id in self.rooms_pending:
+            for message_task in self.rooms_pending[room.room_id]:
+                try:
+                    await message_task[0](self.client.rooms[message_task[2]], message_task[3])
+                except Exception as e:
+                    logger.error(f"Error performing queued task after joining room: {e}")
+            # Clear tasks
+            self.rooms_pending[room.room_id] = []
+        
         # Ignore if we didn't join
         if event.membership != "join" or event.prev_content is None or event.prev_content.get("membership") == "join":
             return
@@ -183,7 +195,10 @@ class Callbacks(object):
         self.trim_duplicates_caches()
         if self.should_process(event.event_id) is False:
             return
+        
+        await self._message(room, event)
 
+    async def _message(self, room, event):
         # Extract the message text
         msg = event.body
 
@@ -239,7 +254,10 @@ class Callbacks(object):
         # Ignore medias from ourselves
         if event.sender == self.client.user:
             return
+        
+        await self._media(room, event)
 
+    async def _media(self, room, event):
         # Extract media type
         msgtype = event.source.get("content").get("msgtype")
 

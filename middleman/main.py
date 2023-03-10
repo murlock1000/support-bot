@@ -78,6 +78,8 @@ async def main(config: Config):
     # noinspection PyTypeChecker
     client.add_to_device_callback(callbacks.room_key_request, (RoomKeyRequest,))
 
+    client.callbacks = callbacks
+    
     # Keep trying to reconnect on failure (with some time in-between)
     while True:
         try:

@@ -1,25 +1,41 @@
+from __future__ import annotations
 import logging
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomCreateResponse, RoomInviteResponse, RoomCreateError
+from nio import (RoomSendResponse, 
+                 RoomCreateResponse, 
+                 RoomInviteResponse,
+                 RoomCreateError,
+                 RoomGetEventResponse,
+                 AsyncClient,
+                 RoomMessageNotice,
+                 RoomMessageFormatted,
+                 RoomMessageMedia,
+                 RoomEncryptedMedia
+                )
+from nio.rooms import MatrixRoom
+from nio.events.room_events import RoomMessageText
 
 from middleman import commands_help
 from middleman.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
     find_private_msg, is_user_in_room, send_shared_history_keys
+from middleman.config import Config
 from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from middleman.handlers.MessagingHandler import MessagingHandler
 from middleman.models.Chat import Chat
+from middleman.models.IncomingEvent import IncomingEvent
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
+from middleman.storage import Storage
 from middleman.utils import get_replaces, get_username
 
 logger = logging.getLogger(__name__)
 
 
 class Command(object):
-    def __init__(self, client, store, config, command, room, event):
+    def __init__(self, client: AsyncClient, store: Storage, config: Config, command: str, room: MatrixRoom, event: RoomMessageText):
         """A command made by a user
 
         Args:
@@ -35,12 +51,12 @@ class Command(object):
 
             event (nio.events.room_events.RoomMessageText): The event describing the command
         """
-        self.client = client
-        self.store = store
-        self.config = config
-        self.command = command
-        self.room = room
-        self.event = event
+        self.client: AsyncClient = client
+        self.store: Storage = store
+        self.config: Config = config
+        self.command: str = command
+        self.room: MatrixRoom = room
+        self.event: RoomMessageText = event
         self.args = self.command.split()[1:]
         self.handler = EventStateHandler(client, store, config, room, event)
         self.messageHandler = MessagingHandler(self.handler)
@@ -70,6 +86,8 @@ class Command(object):
             await self._raise_ticket()
         elif self.command.startswith("close"):
             await self._close_room()
+        elif self.command.startswith("forceclose"):
+            await self._force_close()
         elif self.command.startswith("reopen"):
             await self._reopen_ticket()
         elif self.command.startswith("opentickets"):
@@ -301,6 +319,33 @@ class Command(object):
                 self.client, self.room.room_id, f"Failed to create a new DM for user {user_id} with error: {resp.status_code}",
             )
 
+    async def _copy_incoming_events(self, ticket:Ticket):
+        incomingEvents = IncomingEvent.get_incoming_events(self.store, ticket.user_id)
+        for event in incomingEvents:
+            resp = await self.client.room_get_event(event.room_id, event.event_id)
+            if isinstance(resp, RoomGetEventResponse):
+                if isinstance(resp.event, (RoomMessageText, RoomMessageNotice, RoomMessageFormatted)):
+                    task = (self.client.callbacks._message, ticket.ticket_room_id, event.room_id, resp.event)
+                elif isinstance(resp.event, (RoomMessageMedia, RoomEncryptedMedia)):
+                    task = (self.client.callbacks._media, ticket.ticket_room_id, event.room_id, resp.event)
+                else:
+                    continue
+                
+                if task[1] in self.client.rooms:
+                    await task[0](self.client.rooms[task[2]], task[3])
+                else:
+                    if task[1] not in self.client.callbacks.rooms_pending:
+                        self.client.callbacks.rooms_pending[task[1]] = []
+
+                    self.client.callbacks.rooms_pending[task[1]].append(task)
+            else:
+                msg = f"Failed to get event {event.event_id} from user {event.user_id} in room {event.room_id}. Event was not copied to new room."
+                logger.warning(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg,)
+        
+        # Delete the events
+        IncomingEvent.delete_user_incoming_events(self.store, event.user_id)
+
     async def _raise_ticket(self):
         """
         Staff raise a ticket for a user.
@@ -348,8 +393,8 @@ class Command(object):
             await send_text_to_room(self.client, self.room.room_id, msg,)
             return
 
-        # Create a room for this ticket
-        response = await ticket.create_ticket_room(self.client)
+        # Create a room for this ticket and invite staff to it
+        response = await ticket.create_ticket_room(self.client, [self.handler.staff.user_id])
         if isinstance(response, RoomCreateResponse):
             logger.info(f"Created a Ticket room {response.room_id} successfully for ticket id {ticket.id}")
         else:
@@ -357,22 +402,25 @@ class Command(object):
             logger.info(msg)
             await send_text_to_room(self.client, self.room.room_id, msg,)
             return
-
+          
         # Claim Ticket for the staff
         ticket.claim_ticket(self.handler.staff.user_id)
 
         # Invite staff to Ticket room
-        response = await ticket.invite_to_ticket_room(self.client, self.handler.staff.user_id)
+        # response = await ticket.invite_to_ticket_room(self.client, self.handler.staff.user_id)
 
-        if isinstance(response, RoomInviteResponse):
-            logger.info(f"Invited staff {self.handler.staff.user_id} to room {ticket.ticket_room_id}")
-        else:
-            msg = f"Failed to invite staff {self.handler.staff.user_id} to room {ticket.ticket_room_id}"
-            logger.info(msg)
-            await send_text_to_room(
-                self.client, self.room.room_id, msg,
-            )
-            return
+        # Send user messages sent to management room to ticket room.
+        await self._copy_incoming_events(ticket)
+
+        #if isinstance(response, RoomInviteResponse):
+        #    logger.info(f"Invited staff {self.handler.staff.user_id} to room {ticket.ticket_room_id}")
+        #else:
+        #    msg = f"Failed to invite staff {self.handler.staff.user_id} to room {ticket.ticket_room_id}"
+        #    logger.info(msg)
+        #    await send_text_to_room(
+        #        self.client, self.room.room_id, msg,
+        #    )
+        #    return
 
     async def _chat(self):
         """
@@ -470,6 +518,40 @@ class Command(object):
         await kick_from_room(
             self.client, self.event.sender, self.room.room_id
         )
+
+    async def _force_close(self):
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CHAT)
+            return
+        
+        ticket_id = self.args[0]
+        
+        ticket:Ticket = Ticket.get_existing(self.store, ticket_id)
+        if not ticket:
+            msg = f"Could not find Ticket with ticket id {ticket_id} to forcefully close"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+        else:
+            if ticket.status != TicketStatus.CLOSED:
+                ticket.set_status(TicketStatus.CLOSED)
+
+                current_user_ticket_id = ticket.find_user_current_ticket_id()
+                if current_user_ticket_id == ticket.id:
+                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+
+                msg = f"Forcefully closed Ticket {ticket.id}"
+                logger.info(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg,)
+                if self.room.room_id != self.config.management_room_id:
+                    await send_text_to_room(self.client, self.config.management_room_id, msg,)
+                    
+            else:
+                msg = f"Ticket {ticket.id} is already closed"
+                logger.info(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg,)
+
+        
 
     async def _close_ticket(self):
         """
