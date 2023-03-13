@@ -1,4 +1,5 @@
 from middleman.models.Repositories.ChatRepository import ChatRepository
+from middleman.models.Repositories.EventPairsRepository import EventPairsRepository
 from middleman.models.Repositories.IncomingEventsRepository import IncomingEventsRepository
 from middleman.models.Repositories.StaffRepository import StaffRepository
 from middleman.models.Repositories.TicketRepository import TicketRepository
@@ -15,3 +16,4 @@ class Repositories(object):
         self.userRep = UserRepository(self.storage)
         self.chatRep = ChatRepository(self.storage)
         self.incomingEventsRep = IncomingEventsRepository(self.storage)
+        self.eventPairsRep = EventPairsRepository(self.storage)

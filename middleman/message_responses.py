@@ -1,8 +1,9 @@
 import logging
 import re
+from typing import Union
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError, AsyncClient
+from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, RoomGetEventResponse
 from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
 
@@ -11,15 +12,16 @@ from middleman.chat_functions import send_reaction, send_text_to_room
 from middleman.config import Config
 from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from middleman.handlers.MessagingHandler import MessagingHandler
+from middleman.models.EventPairs import EventPair, SingleEvent
 from middleman.models.IncomingEvent import IncomingEvent
 from middleman.storage import Storage
-from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
+from middleman.utils import _get_reply_msg, get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
 logger = logging.getLogger(__name__)
 
 
 class Message(object):
-    def __init__(self, client, store, config, message_content, room, event):
+    def __init__(self, client: AsyncClient, store: Storage, config: Config, message_content: str, room: MatrixRoom, event: RoomMessage):
         """Initialize a new Message
 
         Args:
@@ -40,7 +42,7 @@ class Message(object):
         self.config: Config = config
         self.message_content: str = message_content
         self.room:MatrixRoom  = room
-        self.event: RoomMessageText = event
+        self.event: RoomMessage = event
         self.handler = EventStateHandler(client, store, config, room, event)
         self.messageHandler = MessagingHandler(self.handler)
 
@@ -217,10 +219,51 @@ class Message(object):
                    f"{self.message_content}".replace("\n", "  \n")
         return text
 
+    async def get_related(self, related_event_id: str) -> Union[str, None]:
+        resp = await self.client.room_get_event(self.room.room_id, related_event_id)
+        if isinstance(resp, RoomGetEventResponse):
+            related_event_is_clone = resp.event.sender == self.client.user_id
+        else:
+            return None
+        
+        if related_event_is_clone:
+            event_pair =  EventPair.get_clone_event_pair(self.store, self.room.room_id, related_event_id)
+            if event_pair:
+                return event_pair.event_id
+        else:
+            event_pair =  EventPair.get_event_pair(self.store, self.room.room_id, related_event_id)
+            if event_pair:
+                return event_pair.clone_event_id
+
+    async def put_related_clone_event(self, clone_room_id: str, clone_event_id: str):
+        event_pair = EventPair(self.store, self.room.room_id, self.event.event_id, clone_room_id, clone_event_id)
+        event_pair.store_event_pair()
+        
     async def send_message_to_room(self, text, room):
-        response = await send_text_to_room(self.client, room, text, False)
+        
+        reply_to_event_id = get_in_reply_to(self.event)
+        replaces_event_id = get_replaces(self.event)
+        
+        if reply_to_event_id:
+            reply_to_event_id = await self.get_related(reply_to_event_id)
+            if reply_to_event_id:
+                text = _get_reply_msg(self.event)
+        
+        if replaces_event_id:
+            replaces_event_id = await self.get_related(replaces_event_id)
+            if replaces_event_id:
+                text = _get_reply_msg(self.event)
+            
+        response = await send_text_to_room(self.client,
+                                           room, text,
+                                           False,
+                                           reply_to_event_id=reply_to_event_id,
+                                           replaces_event_id=replaces_event_id,
+                                        )
         if type(response) == RoomSendResponse and response.event_id:
+            
             try:
+                await self.put_related_clone_event(room, response.event_id)
                 self.store.store_message(
                     self.event.event_id,
                     response.event_id,

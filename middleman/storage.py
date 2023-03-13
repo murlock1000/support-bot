@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 #
 # When a migration is performed, the `migration_version` table should be incremented.
 
-latest_migration_version = 9
+latest_migration_version = 10
 
 logger = logging.getLogger(__name__)
 
