@@ -23,6 +23,7 @@ from middleman.config import Config
 from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from middleman.handlers.MessagingHandler import MessagingHandler
 from middleman.models.Chat import Chat
+from middleman.models.EventPairs import EventPair
 from middleman.models.IncomingEvent import IncomingEvent
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
@@ -322,6 +323,10 @@ class Command(object):
     async def _copy_incoming_events(self, ticket:Ticket):
         incomingEvents = IncomingEvent.get_incoming_events(self.store, ticket.user_id)
         for event in incomingEvents:
+            
+            # Delete old paired events to prevent original message being tied to different clones
+            EventPair.delete_event(self.store, event.room_id, event.event_id)
+            
             resp = await self.client.room_get_event(event.room_id, event.event_id)
             if isinstance(resp, RoomGetEventResponse):
                 if isinstance(resp.event, (RoomMessageText, RoomMessageNotice, RoomMessageFormatted)):

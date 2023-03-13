@@ -11,7 +11,7 @@ from nio import (
 from middleman.bot_commands import Command
 from middleman.chat_functions import send_text_to_room
 from middleman.media_responses import Media
-from middleman.message_responses import Message
+from middleman.message_responses import TextMessage
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.utils import with_ratelimit
 
@@ -225,7 +225,7 @@ class Callbacks(object):
             await command.process()
         else:
             # General message listener
-            message = Message(self.client, self.store, self.config, msg, room, event)
+            message = TextMessage(self.client, self.store, self.config, room, event, msg)
             await message.process()
 
     async def media(self, room, event):
@@ -275,7 +275,7 @@ class Callbacks(object):
 
         # General media listener
         media = Media(
-            self.client, self.store, self.config, msgtype, body, media_url, media_file, media_info, room, event,
+            self.client, self.store, self.config, room, event, msgtype, body, media_url, media_file, media_info
         )
         await media.process()
 

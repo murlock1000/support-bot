@@ -46,6 +46,10 @@ class EventPair(object):
         storage.repositories.eventPairsRep.delete_room_events(room_id)
     
     @staticmethod
+    def delete_event(storage:Storage, room_id:str, event_id:str):
+        storage.repositories.eventPairsRep.delete_event(room_id, event_id)
+    
+    @staticmethod
     def delete_room_clone_events(storage:Storage, clone_room_id:str):
         storage.repositories.eventPairsRep.delete_room_clone_events(clone_room_id)
         

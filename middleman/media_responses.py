@@ -5,6 +5,7 @@ from typing import List
 from nio import RoomSendResponse, RoomSendError
 
 from middleman.chat_functions import send_media_to_room, send_reaction, send_text_to_room, find_private_msg
+from middleman.event_responses import Message
 from middleman.handlers.EventStateHandler import EventStateHandler, RoomType, LogLevel
 from middleman.handlers.MessagingHandler import MessagingHandler
 from middleman.models.Chat import Chat
@@ -24,8 +25,8 @@ media_name = {
 }
 
 
-class Media(object):
-    def __init__(self, client, store, config, media_type, body, media_url, media_file, media_info, room, event):
+class Media(Message):
+    def __init__(self, client, store, config, room, event, media_type, body, media_url, media_file, media_info):
         """Initialize a new Media
 
         Args:
@@ -34,6 +35,10 @@ class Media(object):
             store (Storage): Bot storage
 
             config (Config): Bot configuration parameters
+            
+            room (nio.rooms.MatrixRoom): The room the event came from
+
+            event (nio.events.room_events.RoomMessageMedia): The event defining the media
 
             media_type (str): The type of the media
 
@@ -44,23 +49,14 @@ class Media(object):
             media_file (str): The url of the encrypted media
 
             media_info (str): The metadata of the media
-
-            room (nio.rooms.MatrixRoom): The room the event came from
-
-            event (nio.events.room_events.RoomMessageMedia): The event defining the media
         """
-        self.client = client
-        self.store = store
-        self.config = config
-        self.room = room
-        self.event = event
+        super().__init__(client, store, config, room, event)
+        
         self.media_type = media_type
         self.body = body
         self.media_url = media_url
         self.media_file = media_file
         self.media_info = media_info
-        self.handler = EventStateHandler(client, store, config, room, event)
-        self.messageHandler = MessagingHandler(self.handler)
 
     async def handle_management_room_media(self):
         reply_to = get_in_reply_to(self.event)
@@ -127,43 +123,11 @@ class Media(object):
         else:
             logger.debug(f"Skipping {self.event.event_id} reply {media_name[self.media_type]}")
 
-
-
-    async def process(self):
-        """
-        Process media.
-        - if management room, identify replies and forward back to original messages.
-        - anything else, relay to management room.
-        """
-
-        # Update required state based on room type
-        if not await self.handler.find_room_state():
-            return
-
-        msg = "Bot received media for {} | "\
+    def construct_received_message(self):
+        return "Bot received media for {} | "\
             f"{self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
             f"alias: {self.room.canonical_alias}): {self.body}"
-
-        # Combined message form
-        msg = msg.format(self.handler.for_room)
-        self.handler.log_console(msg, LogLevel.DEBUG)
-
-
-        # Handle different scenarios
-        if self.handler.room_type == RoomType.ManagementRoom:
-            await self.handle_management_room_media()
-        elif self.handler.room_type == RoomType.TicketRoom:
-            await self.handle_ticket_room_media()
-        elif self.handler.room_type == RoomType.ChatRoom:
-            await self.handle_chat_room_media()
-        else:
-            # Default - message from user
-            await self.relay_from_user()
             
-    def save_incoming_event(self):
-        incoming_event = IncomingEvent(self.store, self.handler.user.user_id, self.room.room_id, self.event.event_id)
-        incoming_event.store_incoming_event()
-
     def anonymise_text(self, anonymise: bool) -> str:
         if anonymise:
             text = None
@@ -173,10 +137,14 @@ class Media(object):
         return text
 
     async def send_message_to_room(self, text, room_id):
+        
+        reply_to_event_id, text = await self.transform_reply(text, room_id)
+        
         sender_notify_event_id = None
         if text:
             response = await send_text_to_room(self.client, room_id, text, notice=True)
             sender_notify_event_id = response.event_id
+            reply_to_event_id = sender_notify_event_id
             if type(response) != RoomSendResponse or not response.event_id:
                 logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
                          f"room {self.handler.user.room_id}")
@@ -190,11 +158,12 @@ class Media(object):
             self.media_url,
             self.media_file,
             self.media_info,
-            reply_to_event_id=sender_notify_event_id
+            reply_to_event_id=reply_to_event_id
         )
 
         if type(response) == RoomSendResponse and response.event_id:
             try:
+                await self.put_related_clone_event(room_id, response.event_id)
                 self.store.store_message(
                     self.event.event_id,
                     response.event_id,
@@ -208,46 +177,12 @@ class Media(object):
             logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
                          f"room {self.handler.user.room_id}")
 
-    async def handle_ticket_room_media(self):
-        """Relay staff Ticket message to the client communications room."""
-
-        if not await self.messageHandler.handle_ticket_message():
-            return
-
-        text = self.anonymise_text(True)
-        await self.send_message_to_room(text, self.handler.user.room_id)
-
-    async def handle_chat_room_media(self):
-        """Relay staff Chat message to the client communications room."""
-
-        if not await self.messageHandler.handle_chat_message():
-            return
-
-        text = self.anonymise_text(True)
-        await self.send_message_to_room(text, self.handler.user.room_id)
-
-    async def relay_from_user(self):
-        """Relay to appropriate room (Ticket/chat/management)."""
-
+    def relay_based_on_mention_room(self) -> bool:
         # First check if we want to relay this
         if self.handler.is_mention_only_room([self.room.canonical_alias, self.room.room_id], self.room.is_named):
             # skip media in mention only rooms for now
             logger.debug(f"Skipping {media_name[self.media_type]} %s in room %s as it's set to "
                          f"only relay on mention and mentions are not supported for media ",
                          self.event.event_id, self.room.room_id)
-            return
-
-        # Update state for different scenarios and get room id to relay message to.
-        room_id = await self.messageHandler.setup_relay()
-
-        # Handle different relaying scenarios
-        if self.handler.ticket:
-            text = self.anonymise_text(True)
-        elif self.handler.user.current_chat_room_id:
-            text = self.anonymise_text(True)
-        else:
-            # Save the message event id into storage, to be sent to a ticket room later
-            self.save_incoming_event()
-            text = self.anonymise_text(self.config.anonymise_senders)
-        await self.send_message_to_room(text, room_id)
-
+            return False
+        return True

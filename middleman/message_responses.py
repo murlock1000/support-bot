@@ -7,6 +7,7 @@ from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, RoomG
 from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
 
+from middleman.event_responses import Message
 from middleman.bot_commands import Command
 from middleman.chat_functions import send_reaction, send_text_to_room
 from middleman.config import Config
@@ -20,9 +21,9 @@ from middleman.utils import _get_reply_msg, get_in_reply_to, get_mentions, get_r
 logger = logging.getLogger(__name__)
 
 
-class Message(object):
-    def __init__(self, client: AsyncClient, store: Storage, config: Config, message_content: str, room: MatrixRoom, event: RoomMessage):
-        """Initialize a new Message
+class TextMessage(Message):
+    def __init__(self, client: AsyncClient, store: Storage, config: Config, room: MatrixRoom, event: RoomMessage, message_content: str):
+        """Initialize a new Text Message
 
         Args:
             client (nio.AsyncClient): nio client used to interact with matrix
@@ -31,20 +32,15 @@ class Message(object):
 
             config (Config): Bot configuration parameters
 
-            message_content (str): The body of the message
-
             room (nio.rooms.MatrixRoom): The room the event came from
 
             event (nio.events.room_events.RoomMessageText): The event defining the message
+            
+            message_content (str): The body of the message
         """
-        self.client: AsyncClient = client
-        self.store: Storage = store
-        self.config: Config = config
+        super().__init__(client, store, config, room, event)
+        
         self.message_content: str = message_content
-        self.room:MatrixRoom  = room
-        self.event: RoomMessage = event
-        self.handler = EventStateHandler(client, store, config, room, event)
-        self.messageHandler = MessagingHandler(self.handler)
 
     async def handle_management_room_message(self):
         reply_to = get_in_reply_to(self.event)
@@ -177,39 +173,10 @@ class Message(object):
                 True,
             )
 
-    async def process(self):
-        """
-        Process messages.
-        - if management room, identify replies and forward back to original messages.
-        - anything else, relay to management room.
-        """
-
-        # Update required state based on room type
-        if not await self.handler.find_room_state():
-            return
-
-        msg = "Bot message received for {} | "\
+    def construct_received_message(self) -> str:
+        return "Bot message received for {} | "\
             f"{self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
             f"alias: {self.room.canonical_alias}): {self.message_content}"
-
-        # Combined message form
-        msg = msg.format(self.handler.for_room)
-        self.handler.log_console(msg, LogLevel.DEBUG)
-
-        # Handle different scenarios
-        if self.handler.room_type == RoomType.ManagementRoom:
-            await self.handle_management_room_message()
-        elif self.handler.room_type == RoomType.TicketRoom:
-            await self.handle_ticket_room_message()
-        elif self.handler.room_type == RoomType.ChatRoom:
-            await self.handle_chat_room_message()
-        else:
-            # Default - message from user
-            await self.relay_from_user()
-
-    def save_incoming_event(self):
-        incoming_event = IncomingEvent(self.store, self.handler.user.user_id, self.room.room_id, self.event.event_id)
-        incoming_event.store_incoming_event()
 
     def anonymise_text(self, anonymise: bool) -> str:
         if anonymise:
@@ -218,44 +185,14 @@ class Message(object):
             text = f"{self.event.sender} in {self.room.display_name} (`{self.room.room_id}`): " \
                    f"{self.message_content}".replace("\n", "  \n")
         return text
+        
+    async def send_message_to_room(self, text:str, room_id:str):
+                
+        reply_to_event_id, text = await self.transform_reply(text, room_id)
+        replaces_event_id, text = await self.transform_replaces(text, room_id)
 
-    async def get_related(self, related_event_id: str) -> Union[str, None]:
-        resp = await self.client.room_get_event(self.room.room_id, related_event_id)
-        if isinstance(resp, RoomGetEventResponse):
-            related_event_is_clone = resp.event.sender == self.client.user_id
-        else:
-            return None
-        
-        if related_event_is_clone:
-            event_pair =  EventPair.get_clone_event_pair(self.store, self.room.room_id, related_event_id)
-            if event_pair:
-                return event_pair.event_id
-        else:
-            event_pair =  EventPair.get_event_pair(self.store, self.room.room_id, related_event_id)
-            if event_pair:
-                return event_pair.clone_event_id
-
-    async def put_related_clone_event(self, clone_room_id: str, clone_event_id: str):
-        event_pair = EventPair(self.store, self.room.room_id, self.event.event_id, clone_room_id, clone_event_id)
-        event_pair.store_event_pair()
-        
-    async def send_message_to_room(self, text, room):
-        
-        reply_to_event_id = get_in_reply_to(self.event)
-        replaces_event_id = get_replaces(self.event)
-        
-        if reply_to_event_id:
-            reply_to_event_id = await self.get_related(reply_to_event_id)
-            if reply_to_event_id:
-                text = _get_reply_msg(self.event)
-        
-        if replaces_event_id:
-            replaces_event_id = await self.get_related(replaces_event_id)
-            if replaces_event_id:
-                text = _get_reply_msg(self.event)
-            
         response = await send_text_to_room(self.client,
-                                           room, text,
+                                           room_id, text,
                                            False,
                                            reply_to_event_id=reply_to_event_id,
                                            replaces_event_id=replaces_event_id,
@@ -263,7 +200,7 @@ class Message(object):
         if type(response) == RoomSendResponse and response.event_id:
             
             try:
-                await self.put_related_clone_event(room, response.event_id)
+                await self.put_related_clone_event(room_id, response.event_id)
                 self.store.store_message(
                     self.event.event_id,
                     response.event_id,
@@ -275,27 +212,9 @@ class Message(object):
             logger.info("Message %s relayed to room %s", self.event.event_id, self.room.room_id)
         else:
             logger.error("Failed to relay message %s to room %s", self.event.event_id, self.room.room_id)
-            
-    async def handle_ticket_room_message(self):
-        """Relay staff Ticket message to the client communications room."""
-        if not await self.messageHandler.handle_ticket_message():
-            return
 
-        text = self.anonymise_text(True)
-        await self.send_message_to_room(text, self.handler.user.room_id)
 
-    async def handle_chat_room_message(self):
-        """Relay staff Chat message to the client communications room."""
-        if not await self.messageHandler.handle_chat_message():
-            return
-
-        text = self.anonymise_text(True)
-        await self.send_message_to_room(text, self.handler.user.room_id)
-
-    async def relay_from_user(self):
-        """Relay to appropriate room (Ticket/chat/management)."""
-
-        # First check if we want to relay this
+    def relay_based_on_mention_room(self) -> bool:
         if self.handler.is_mention_only_room([self.room.canonical_alias, self.room.room_id], self.room.is_named):
             # Did we get mentioned?
             mentioned = self.config.user_id in get_mentions(self.message_content) or \
@@ -303,20 +222,7 @@ class Message(object):
             if not mentioned:
                 logger.debug("Skipping message %s in room %s as it's set to only relay on mention and we were not "
                              "mentioned.", self.event.event_id, self.room.room_id)
-                return
+                return False
             logger.info("Room %s marked as mentions only and we have been mentioned, so relaying %s",
                         self.room.room_id, self.event.event_id)
-
-        # Update state for different scenarios and get room id to relay message to.
-        room_id = await self.messageHandler.setup_relay()
-
-        # Handle different relaying scenarios
-        if self.handler.ticket:
-            text = self.anonymise_text(True)
-        elif self.handler.user.current_chat_room_id:
-            text = self.anonymise_text(True)
-        else:
-            # Save the message event id into storage, to be sent to a ticket room later
-            self.save_incoming_event()
-            text = self.anonymise_text(self.config.anonymise_senders)
-        await self.send_message_to_room(text, room_id)
+        return True

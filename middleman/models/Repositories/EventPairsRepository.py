@@ -42,3 +42,8 @@ class EventPairsRepository(object):
         self.storage._execute("""
             DELETE FROM EventPairs WHERE clone_room_id= ?;
         """, (clone_room_id,))
+    
+    def delete_event(self, room_id:str, event_id:str):
+        self.storage._execute("""
+            DELETE FROM EventPairs WHERE room_id= ? AND event_id= ?;
+        """, (room_id, event_id,))
