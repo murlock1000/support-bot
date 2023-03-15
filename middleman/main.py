@@ -23,6 +23,7 @@ from nio import (
     RoomMessageMedia,
     RoomResolveAliasResponse, RoomKeyRequest,
     RedactionEvent,
+    CallInviteEvent,
 )
 
 from middleman.callbacks import Callbacks
@@ -70,6 +71,8 @@ async def main(config: Config):
     client.add_event_callback(callbacks.message, (RoomMessageText, RoomMessageNotice, RoomMessageFormatted))
     # noinspection PyTypeChecker
     client.add_event_callback(callbacks.media, (RoomMessageMedia, RoomEncryptedMedia))
+    # noinspection PyTypeChecker
+    client.add_event_callback(callbacks.call_invite, (CallInviteEvent,))
     # noinspection PyTypeChecker
     client.add_event_callback(callbacks.redact, (RedactionEvent,))
     # noinspection PyTypeChecker
