@@ -336,6 +336,11 @@ class Command(object):
                 else:
                     continue
                 
+                # 0 - task method
+                # 1 - room that is blocking the task
+                # 2 - room the event originated from
+                # 3 - the event itself
+                
                 if task[1] in self.client.rooms:
                     await task[0](self.client.rooms[task[2]], task[3])
                 else:
@@ -442,10 +447,14 @@ class Command(object):
         user = User.get_existing(self.store, user_id)
 
         if not user:
-            msg = f"Failed to chat with {user_id}, user has not texted the bot yet"
-            logger.warning(msg)
-            await send_text_to_room(self.client, self.room.room_id, msg,)
-            return
+            username = get_username(user_id)
+            if not username:
+                msg = f"Failed to chat with {user_id}, user does not exist"
+                logger.warning(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg,)
+                return
+            else:
+                user = User.create_new(self.store, user_id)
 
         # Fetch existing or create new Chat for user:
         if user.current_chat_room_id:

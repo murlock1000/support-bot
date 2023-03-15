@@ -187,7 +187,15 @@ class TextMessage(Message):
         return text
         
     async def send_message_to_room(self, text:str, room_id:str):
-                
+        
+        if not self.client.rooms.get(room_id, None):
+            task = (self.client.callbacks._message, room_id, self.event.room_id, self.event)
+            if task[1] not in self.client.callbacks.rooms_pending:
+                self.client.callbacks.rooms_pending[task[1]] = []
+
+            self.client.callbacks.rooms_pending[task[1]].append(task)
+            return
+            
         reply_to_event_id, text = await self.transform_reply(text, room_id)
         replaces_event_id, text = await self.transform_replaces(text, room_id)
 

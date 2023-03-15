@@ -1,5 +1,6 @@
 from middleman.models.Repositories.UserRepository import UserRepository
 from middleman.storage import Storage
+from middleman.utils import get_username
 
 # Controller (External data)-> Service (Logic) -> Repository (sql queries)
 class User(object):
@@ -14,6 +15,7 @@ class User(object):
         self.room_id =              fields['room_id']
         self.current_ticket_id =    fields['current_ticket_id']
         self.current_chat_room_id = fields['current_chat_room_id']
+        self.username = get_username(self.user_id)
 
     @staticmethod
     def get_existing(storage:Storage, user_id:str):

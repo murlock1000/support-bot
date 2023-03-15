@@ -1,14 +1,13 @@
 import logging
-from typing import Callable
 
-from middleman.models.Chat import Chat
+from nio import RoomCreateResponse, RoomCreateError
+
 from middleman.models.Repositories.TicketRepository import TicketStatus
-from middleman.models.Ticket import Ticket
-from middleman.models.User import User
+from middleman.utils import get_username
 
 logger = logging.getLogger(__name__)
 
-from middleman.chat_functions import send_text_to_room, find_private_msg
+from middleman.chat_functions import create_private_room, send_text_to_room, find_private_msg
 from middleman.handlers.EventStateHandler import LogLevel, EventStateHandler
 
 
@@ -21,6 +20,24 @@ class MessagingHandler(object):
         self.event = handler.event
         self.handler = handler
 
+    async def setup_communications_room(self):
+        user = self.handler.user
+        username = get_username(self.client.user_id)
+        resp = await create_private_room(self.client, user.user_id, username)
+        if isinstance(resp, RoomCreateResponse):
+            user.update_communications_room(resp.room_id)
+            await send_text_to_room(
+                self.client, self.room.room_id,
+                f"Created a new DM for user {user.user_id} with roomID: {resp.room_id}",
+            )
+            return True
+        elif isinstance(resp, RoomCreateError):
+            await send_text_to_room(
+                self.client, self.room.room_id, f"Failed to create a new DM for user {user.user_id} with error: {resp.status_code}",
+            )
+            return False
+            
+            
     # Message in Ticket room business logic, return False on failure.
     async def handle_ticket_message(self) -> bool:
 
@@ -56,7 +73,10 @@ class MessagingHandler(object):
 
         # Find user communications room to relay message to
         if not await self.find_communications_room(self.handler.ticket.user_id):
-            return False
+            msg = f"User {self.handler.user.user_id} does not have a valid communications channel. \
+                        Trying to create one automatically."
+            await self.handler.message_room(msg, LogLevel.WARNING)
+            return await self.setup_communications_room()
 
         return True
 
@@ -80,7 +100,12 @@ class MessagingHandler(object):
 
         # Find user communications room to relay message to
         if not await self.find_communications_room(self.handler.chat.user_id):
-            return False
+            # If room not found - try to create a new one and add message to queue to be sent
+            
+            msg = f"User {self.handler.user.user_id} does not have a valid communications channel. \
+                        Trying to create one automatically."
+            await self.handler.message_room(msg, LogLevel.WARNING)
+            return await self.setup_communications_room()
         return True
 
     async def setup_relay(self) -> str:
@@ -107,9 +132,6 @@ class MessagingHandler(object):
         if not self.handler.user.room_id:
             room = find_private_msg(self.client, user_id)
             if not room:
-                msg = f"User {self.handler.user.user_id} does not have a valid communications channel. \
-                        The user must write to the bot first or create one with !setupcommunicationsroom."
-                await self.handler.message_room(msg, LogLevel.WARNING)
                 return False
             else:
                 self.handler.user.update_communications_room(room.room_id)
