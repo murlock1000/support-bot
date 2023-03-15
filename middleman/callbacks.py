@@ -5,7 +5,7 @@ from datetime import datetime
 # noinspection PyPackageRequirements
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
-    RoomKeyRequestError, RoomMemberEvent, Response, RoomKeyRequest,
+    RoomKeyRequestError, RoomMemberEvent, Response, RoomKeyRequest, RedactionEvent,
 )
 
 from middleman.bot_commands import Command
@@ -13,6 +13,7 @@ from middleman.chat_functions import send_text_to_room
 from middleman.media_responses import Media
 from middleman.message_responses import TextMessage
 from middleman.models.Repositories.TicketRepository import TicketStatus
+from middleman.redact_responses import RedactMessage
 from middleman.utils import with_ratelimit
 
 from middleman.models.Ticket import Ticket, ticket_name_pattern
@@ -172,6 +173,44 @@ class Callbacks(object):
             f"I have joined room {room.display_name} (`{room.room_id}`).",
             True,
         )
+
+    async def redact(self, room, event):
+        """Callback for when a redact event is received
+
+        Args:
+            room (nio.rooms.MatrixRoom): The room the event came from
+
+            event (nio.events.room_events.RoomMessageText): The event defining the message
+
+        """
+        # If ignoring old messages, ignore messages older than 5 minutes
+        if self.config.ignore_old_messages:
+            if (
+                    datetime.now() - datetime.fromtimestamp(event.server_timestamp / 1000.0)
+            ).total_seconds() > 300:
+                return
+        if self.config.matrix_logging_room and room.room_id == self.config.matrix_logging_room:
+            # Don't react to anything in the logging room
+            return
+
+        self.trim_duplicates_caches()
+        if self.should_process(event.event_id) is False:
+            return
+        
+        await self._redact(room, event)
+        
+    async def _redact(self, room, event: RedactionEvent):
+        # Extract the redact information
+        redacts_event_id = event.redacts
+        reason = event.reason
+
+        # Ignore messages from ourselves
+        if event.sender == self.client.user:
+            return
+
+        redact = RedactMessage(self.client, self.store, self.config, room, event, redacts_event_id, reason)
+        await redact.process()
+        
 
     async def message(self, room, event):
         """Callback for when a message event is received

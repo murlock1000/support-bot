@@ -99,6 +99,13 @@ async def send_text_to_room(
         return f"Failed to send message: {ex}"
 
 
+async def send_room_redact(client: AsyncClient, room_id: str, redacts_event_id: str, reason:str):
+    return await client.room_redact(
+            room_id,
+            redacts_event_id,
+            reason,
+        )
+
 async def send_reaction(
     client: AsyncClient, room: str, event_id: str, reaction_key: str
 ) -> Union[RoomSendResponse, RoomSendError, str]:
