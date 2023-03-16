@@ -6,15 +6,18 @@ from datetime import datetime
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
     RoomKeyRequestError, RoomMemberEvent, Response, RoomKeyRequest, RedactionEvent, CallInviteEvent,
+    AsyncClient, CallEvent, 
 )
 
 from middleman.bot_commands import Command
-from middleman.call_invite_responses import CallInvite
+from middleman.call_event_message_responses import CallEventMessage
 from middleman.chat_functions import send_text_to_room
+from middleman.config import Config
 from middleman.media_responses import Media
 from middleman.message_responses import TextMessage
 from middleman.models.Repositories.TicketRepository import TicketStatus
 from middleman.redact_responses import RedactMessage
+from middleman.storage import Storage
 from middleman.utils import with_ratelimit
 
 from middleman.models.Ticket import Ticket, ticket_name_pattern
@@ -26,7 +29,7 @@ DUPLICATES_CACHE_SIZE = 1000
 
 
 class Callbacks(object):
-    def __init__(self, client, store, config):
+    def __init__(self, client: AsyncClient, store: Storage, config: Config):
         """
         Args:
             client (nio.AsyncClient): nio client used to interact with matrix
@@ -174,11 +177,8 @@ class Callbacks(object):
             f"I have joined room {room.display_name} (`{room.room_id}`).",
             True,
         )
-
-    async def wot(self, room, event):
-        print(event)
     
-    async def call_invite(self, room: MatrixRoom, event):
+    async def call_event(self, room: MatrixRoom, event: CallEvent):
         """Callback for when a m.call.invite event is received
 
         Args:
@@ -202,7 +202,7 @@ class Callbacks(object):
         if self.should_process(event.event_id) is False:
             return
         
-        await self._call_invite(room, event)
+        await self._call_event(room, event)
 
     async def redact(self, room, event):
         """Callback for when a redact event is received
@@ -229,12 +229,14 @@ class Callbacks(object):
         
         await self._redact(room, event)
         
-    async def _call_invite(self, room: MatrixRoom, event: CallInviteEvent):
+    async def _call_event(self, room: MatrixRoom, event: CallEvent):
         # Ignore messages from ourselves
         if event.sender == self.client.user:
             return
 
-        call_invite = CallInvite(self.client, self.store, self.config, room, event)
+        event_type = event.source["type"]
+
+        call_invite = CallEventMessage(self.client, self.store, self.config, room, event, event_type)
         await call_invite.process()
     
     async def _redact(self, room, event: RedactionEvent):

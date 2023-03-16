@@ -3,20 +3,15 @@ import re
 from typing import Union
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, RoomGetEventResponse
+from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage
 from nio.rooms import MatrixRoom
-from nio.events.room_events import RoomMessageText
 
 from middleman.event_responses import Message
 from middleman.bot_commands import Command
 from middleman.chat_functions import send_reaction, send_text_to_room
 from middleman.config import Config
-from middleman.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
-from middleman.handlers.MessagingHandler import MessagingHandler
-from middleman.models.EventPairs import EventPair, SingleEvent
-from middleman.models.IncomingEvent import IncomingEvent
 from middleman.storage import Storage
-from middleman.utils import _get_reply_msg, get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
+from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
 logger = logging.getLogger(__name__)
 
