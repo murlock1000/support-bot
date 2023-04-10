@@ -129,6 +129,23 @@ class Ticket(object):
 
         # Assign staff member to the ticket
         self.ticketRep.assign_staff_to_ticket(self.id, staff_id)
+        
+    def claimfor_ticket(self, support_id:str):
+        # Claim the ticket for support member
+
+        support = self.ticketRep.get_assigned_support(self.id)
+
+        # Check if support not assigned to ticket already
+        if support_id in [s['user_id'] for s in support]:
+            return
+
+        # Assign support member to the ticket
+        self.ticketRep.assign_support_to_ticket(self.id, support_id)
+
+    def get_assigned_support(self):
+        support = self.ticketRep.get_assigned_support(self.id)
+
+        return [s['user_id'] for s in support]
 
     def set_status(self, status:TicketStatus):
         self.ticketRep.set_ticket_status(self.id, status.value)

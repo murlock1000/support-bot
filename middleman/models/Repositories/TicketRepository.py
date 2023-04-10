@@ -50,6 +50,22 @@ class TicketRepository(object):
             } for row in staff
         ]
     
+    def assign_support_to_ticket(self, ticket_id: int, support_id:str):
+        self.storage._execute("""
+            insert into TicketsSupportRelation (ticket_id, support_id) values (?, ?);
+        """, (ticket_id, support_id,))
+    
+    def get_assigned_support(self, ticket_id:int):
+        self.storage._execute("""
+            SELECT support_id FROM TicketsSupportRelation WHERE ticket_id = ?;
+        """, (ticket_id,))
+        support = self.storage.cursor.fetchall()
+        return [
+            {
+                "user_id": row[0],
+            } for row in support
+        ]
+    
     def remove_staff_from_ticket(self, ticket_id: int, staff_id:str):
         self.storage._execute("""
             DELETE FROM TicketsStaffRelation WHERE ticket_id= ? AND staff_id= ?

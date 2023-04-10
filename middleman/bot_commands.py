@@ -27,6 +27,7 @@ from middleman.models.EventPairs import EventPair
 from middleman.models.IncomingEvent import IncomingEvent
 from middleman.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from middleman.models.Staff import Staff
+from middleman.models.Support import Support
 from middleman.models.Ticket import Ticket
 from middleman.models.User import User
 from middleman.storage import Storage
@@ -81,6 +82,8 @@ class Command(object):
             await self._show_help()
         #elif self.command.startswith("message"):
         #    await self._message()
+        elif self.command.startswith("claimfor"):
+            await self._claimfor()
         elif self.command.startswith("claim"):
             await self._claim()
         elif self.command.startswith("raise"):
@@ -139,6 +142,7 @@ class Command(object):
         help_messages = {
             "commands":commands_help.AVAILABLE_COMMANDS,
             "message":commands_help.COMMAND_WRITE,
+            "claimfor": commands_help.COMMAND_CLAIMFOR,
             "claim":commands_help.COMMAND_CLAIM,
             "raise":commands_help.COMMAND_RAISE,
             "close":commands_help.COMMAND_CLOSE,
@@ -592,6 +596,14 @@ class Command(object):
                 if self.room.room_id != self.config.management_room_id:
                     await send_text_to_room(self.client, self.config.management_room_id, msg,)
 
+                # Kick all support from the room
+                support_users = ticket.get_assigned_support()
+                
+                for support in support_users:
+                    await kick_from_room(
+                    self.client, support, self.room.room_id
+                )
+                
                 # Kick staff from room after close
                 await kick_from_room(
                     self.client, self.event.sender, self.room.room_id
@@ -705,3 +717,50 @@ class Command(object):
             msg = f"Failed to invite {self.handler.staff.user_id} to Ticket room {ticket.ticket_room_id}: {response.message}"
             logger.warning(msg)
             await send_text_to_room(self.client, self.room.room_id, msg,)
+            
+    async def _claimfor(self):
+        """
+        Staff claim a ticket for support.
+        """
+
+        if len(self.args) < 2:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIMFOR)
+            return
+
+        user_id = self.args[0]
+        ticket_id = self.args[1]
+
+        # Get ticket by id
+        ticket = Ticket.get_existing(self.store, int(ticket_id))
+
+        if not ticket:
+            msg = f"Ticket with ID {ticket_id} was not found."
+            logger.warning(msg)
+            await send_text_to_room(self.client, self.room.room_id, msg,)
+            return
+        
+        support = Support.get_existing(self.store, user_id)
+        
+        if not support:
+            msg = f"Creating new support user for {user_id}."
+            logger.info(msg)
+            await send_text_to_room(self.client, self.room.room_id, msg,)
+            
+            support = Support.create_new(self.store, user_id)
+
+        # Claim Ticket for the support user
+        ticket.claimfor_ticket(support.user_id)
+
+        logger.debug(f"Inviting user {support.user_id} to ticket room {ticket.ticket_room_id}")
+
+        # Invite support to Ticket room
+        response = await ticket.invite_to_ticket_room(self.client, support.user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            await send_shared_history_keys(self.client, ticket.ticket_room_id, [support.user_id])
+            logger.debug(f"Invited support to Ticket room successfully")
+        else:
+            msg = f"Failed to invite {support.user_id} to Ticket room {ticket.ticket_room_id}: {response.message}"
+            logger.warning(msg)
+            await send_text_to_room(self.client, self.room.room_id, msg,)
+

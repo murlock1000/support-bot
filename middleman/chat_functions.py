@@ -19,6 +19,7 @@ from nio import (
     ToDeviceMessage
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
+#from middleman.models.Ticket import Ticket
 
 #from middleman.config import Config
 #from middleman.models.Chat import chat_room_name_pattern
@@ -246,7 +247,7 @@ def is_room_private_msg(room: MatrixRoom, mxid: str) -> bool:
         return is_user_in_room(room, mxid)
     return False
 def find_private_msg(client:AsyncClient, mxid: str) -> MatrixRoom:
-    # Find if we already have a common room with user:
+    # Find if we already have a common room with user (Which is not a ticket room):
     msg_room = None
     for roomid in client.rooms:
         room = client.rooms[roomid]
@@ -335,7 +336,9 @@ async def send_shared_history_inbound_sessions(client:AsyncClient, room:MatrixRo
             for user_id, devices in devices_by_user.items():
                 for device in devices:
                     session = client.olm.session_store.get(device.curve25519)
-
+                    if session is None:
+                        logger.error(f"Session for user {user_id} device {device} is not available yet.")
+                        continue
                     client.outgoing_to_device_messages.append(
                         _encrypt_forwarding_key(client, room.room_id, group_session, session, device)
                     )

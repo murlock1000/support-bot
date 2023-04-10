@@ -19,6 +19,15 @@ For example:
 `!claim 5`
 """
 
+COMMAND_CLAIMFOR = """Claim the ticket with specified index (be invited to the ticket room) for a specific user. Usage:
+
+`!claimfor <user id> <Ticket index>`
+
+For example:
+
+`!claimfor @test:matrix.org 5`
+"""
+
 COMMAND_RAISE = """Raise a ticket for a user with a specified name or for the replied to message sender. Usage:
 
 Reply:
