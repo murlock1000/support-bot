@@ -73,8 +73,7 @@ class Media(Message):
                     self.body,
                     self.media_url,
                     self.media_file,
-                    self.media_info,
-                    reply_to_event_id=message["event_id"],
+                    self.media_info
                 )
                 if isinstance(response, RoomSendResponse):
                     # Store our outbound reply so we can reference it later
@@ -146,13 +145,11 @@ class Media(Message):
             self.client.callbacks.rooms_pending[task[1]].append(task)
             return
         
-        reply_to_event_id, text = await self.transform_reply(text, room_id)
         
         sender_notify_event_id = None
         if text:
             response = await send_text_to_room(self.client, room_id, text, notice=True)
             sender_notify_event_id = response.event_id
-            reply_to_event_id = sender_notify_event_id
             if type(response) != RoomSendResponse or not response.event_id:
                 logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
                          f"room {self.handler.user.room_id}")
@@ -165,8 +162,7 @@ class Media(Message):
             self.body,
             self.media_url,
             self.media_file,
-            self.media_info,
-            reply_to_event_id=reply_to_event_id
+            self.media_info
         )
 
         if type(response) == RoomSendResponse and response.event_id:

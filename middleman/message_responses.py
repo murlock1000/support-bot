@@ -11,7 +11,7 @@ from middleman.bot_commands import Command
 from middleman.chat_functions import send_reaction, send_text_to_room
 from middleman.config import Config
 from middleman.storage import Storage
-from middleman.utils import get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
+from middleman.utils import USER_ID_REGEX, get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +54,22 @@ class TextMessage(Message):
             #raise_text = raise_section[raise_section.find("!raise ") + 7:]
             #logger.debug(f"RAISE: {raise_text}")
             if reply_to:
-                message = self.store.get_message_by_management_event_id(reply_to)
-                if message:
-                    reply_rx_pattern = re.compile(r".+(@[^\s]*)")
-                    match = reply_rx_pattern.match(self.event.body)
-
-                    if match:
-                        rx_id = match[1]  # Get the id from regex group
-                        command = Command(self.client, self.store, self.config, raise_section[1:7]+rx_id+raise_section[6:], self.room, self.event)
-                        await command.process()
+                #message = self.store.get_message_by_management_event_id(reply_to)
+               # if message:
+                reply_rx_pattern = re.compile(r".+(@[^\s]*)")
+                match = reply_rx_pattern.match(self.event.body)
+                if match:
+                    rx_id = match[1]  # Get the id from regex group
+                    if self.client.user_id in rx_id:
+                        await send_text_to_room(
+                            self.client,
+                            self.room.room_id,
+                            "Unable to raise tickets for media files.",
+                            True,
+                        )
+                        return
+                    command = Command(self.client, self.store, self.config, raise_section[1:7]+rx_id+raise_section[6:], self.room, self.event)
+                    await command.process()
 
         elif reply_to:
             # Send back to original sender
