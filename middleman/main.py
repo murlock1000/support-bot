@@ -116,7 +116,7 @@ async def main(config: Config):
                         	device_name=config.device_name,
                         )
                     if type(login_response) == LoginError:
-                        logger.error("Failed to login: %s", login_response.message)
+                        logger.error("Failed to login: %s status code: %s", login_response.message, login_response.status_code)
                         break
                 except LocalProtocolError as e:
                     # There's an edge case here where the user hasn't installed the correct C
