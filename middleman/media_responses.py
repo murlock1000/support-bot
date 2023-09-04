@@ -58,6 +58,9 @@ class Media(Message):
         self.media_file = media_file
         self.media_info = media_info
 
+    async def handle_management_room_message(self):
+        return
+    
     async def handle_management_room_media(self):
         reply_to = get_in_reply_to(self.event)
 
