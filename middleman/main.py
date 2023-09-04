@@ -33,6 +33,7 @@ from middleman.callbacks import Callbacks
 from middleman.config import Config
 from middleman.models.Repositories.Repositories import Repositories
 from middleman.storage import Storage
+from middleman.utils import sleep_ms
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,13 @@ async def main(config: Config):
                     )
 
                     # Check if login failed
+                    if type(login_response) == LoginError:
+                        if login_response.status_code == "M_LIMIT_EXCEEDED":
+                            await sleep_ms(login_response.retry_after_ms)
+                            login_response = await client.login(
+                        	password=config.user_password,
+                        	device_name=config.device_name,
+                        )
                     if type(login_response) == LoginError:
                         logger.error("Failed to login: %s", login_response.message)
                         break
