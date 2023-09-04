@@ -44,7 +44,7 @@ class Message(object):
         self.handler = EventStateHandler(client, store, config, room, event)
         self.messageHandler = MessagingHandler(self.handler)
         
-    def construct_received_message(self) -> str:
+    def construct_received_message(self, for_room:str) -> str:
         raise NotImplementedError
 
     async def handle_management_room_message(self):
@@ -61,10 +61,7 @@ class Message(object):
         if not await self.handler.find_room_state():
             return
 
-        msg = self.construct_received_message()
-
-        # Combined message form
-        msg = msg.format(self.handler.for_room)
+        msg = self.construct_received_message(self.handler.for_room)
         self.handler.log_console(msg, LogLevel.DEBUG)
 
         # Handle different scenarios

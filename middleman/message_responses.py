@@ -175,8 +175,8 @@ class TextMessage(Message):
                 True,
             )
 
-    def construct_received_message(self) -> str:
-        return "Bot message received for {} | "\
+    def construct_received_message(self, for_room:str) -> str:
+        return f"Bot message received for {for_room} | "\
             f"{self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
             f"alias: {self.room.canonical_alias}): {self.message_content}"
 

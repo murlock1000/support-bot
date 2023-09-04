@@ -122,8 +122,8 @@ class Media(Message):
         else:
             logger.debug(f"Skipping {self.event.event_id} reply {media_name[self.media_type]}")
 
-    def construct_received_message(self):
-        return "Bot received media for {} | "\
+    def construct_received_message(self, for_room:str) -> str:
+        return f"Bot received media for {for_room} | "\
             f"{self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
             f"alias: {self.room.canonical_alias}): {self.body}"
             
