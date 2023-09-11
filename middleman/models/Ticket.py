@@ -64,7 +64,7 @@ class Ticket(object):
             return None
 
     @staticmethod
-    def find_room_ticket_id(room:MatrixRoom):
+    def find_room_ticket_id(storage:Storage, room:MatrixRoom):
         match = None
         if room.name:
             match = ticket_name_pattern.match(room.name)
@@ -75,12 +75,14 @@ class Ticket(object):
 
         if ticket_id and ticket_id.isnumeric():
             return int(ticket_id)
+        
+        return storage.repositories.ticketRep.get_ticket_id(room.room_id)
 
     @staticmethod
-    def find_ticket_of_room(store, room:MatrixRoom):
+    def find_ticket_of_room(store:Storage, room:MatrixRoom):
         is_open_ticket_room = False
 
-        ticket_id = Ticket.find_room_ticket_id(room)
+        ticket_id = Ticket.find_room_ticket_id(store, room)
         if not ticket_id:
             return None
 

@@ -20,8 +20,8 @@ class TicketRepository(object):
             return inserted_id[0] #BUG - lastrowid always returns 0??
         return inserted_id
         
-    def get_ticket_id(self, user_id:str, user_room_id: str):
-        self.storage._execute("SELECT id FROM Tickets WHERE user_id= ? AND user_room_id= ?;", (user_id, user_room_id,))
+    def get_ticket_id(self, user_room_id: str):
+        self.storage._execute("SELECT id FROM Tickets WHERE user_room_id= ?;", (user_room_id,))
         id = self.storage.cursor.fetchone()
         if id:
             return id[0]

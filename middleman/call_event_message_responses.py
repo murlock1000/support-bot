@@ -39,7 +39,7 @@ class CallEventMessage(Message):
     
     def construct_received_message(self, for_room:str) -> str:
         return f"Bot call event received for {for_room} | "\
-            f"{self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
+            f"{self.event.sender} - {self.room.user_name(self.event.sender)} (named: {self.room.is_named}, name: {self.room.name}, "\
             f"alias: {self.room.canonical_alias}): event type: {self.event_type} "
 
     def anonymise_text(self, anonymise: bool) -> str:
