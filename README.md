@@ -1,18 +1,62 @@
-# Middleman 
+# Support-Bot (based on Middleman) 
 
-[![#middleman:elokapina.fi](https://img.shields.io/matrix/middleman:elokapina.fi.svg?label=%23middleman%3Aelokapina.fi&server_fqdn=matrix.elokapina.fi)](https://matrix.to/#/#middleman:elokapina.fi) [![docker pulls](https://badgen.net/docker/pulls/elokapinaorg/middleman)](https://hub.docker.com/r/elokapinaorg/middleman) [![License:Apache2](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Built with nio-template](https://img.shields.io/badge/built%20with-nio--template-brightgreen)](https://github.com/anoadragon453/nio-template)
+[![License:Apache2](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Built with nio-template](https://img.shields.io/badge/built%20with-nio--template-brightgreen)](https://github.com/anoadragon453/nio-template)
 
-Matrix bot to act as a middleman. Useful as a feedback bot or for support purposes.
+Matrix bot for an Issue tracking system and IT support.
 
 ![](./demo.gif)
 
-Features:
+> Support-Bot Features:
+- Messaging system features:
+  - ✅ Messages to bot are relayed to management room
+  - ✅ Rerequests for decryption keys of unencrypted messages
+  - ✅ Decryption key forwarding for staff
+  - ✅ Support for message types:
+    - ✅ Text messages
+    - ✅ Media files
+    - ✅ Calls
+    - ✅ Replies
+    - ✅ Reactions
+  - ✅ Anonymous replies from staff through bot
+  - ✅ Copy messages from management room to ticket room upon ticket creation
+- Support-bot commands:
+  - `!message <room ID or alias> <Text to write>` - Sends a message to a room 
+  - `!c claim <Ticket index>` - Claim the ticket with specified index (be invited to the ticket room)
+  - `!c claimfor <user id> <Ticket index>` - Claim the ticket with specified index (be invited to the ticket room) for a specific user
+  - `!c raise <user id> <ticket name>` - Raise a ticket for a user
+  - `!c addstaff <user id>` - Add staff with specified name
+  - `!c activeticket <user id>` - Get active ticket of specified user
+  - `!c close` - Closes the ticket that belongs to the current room (no longer transmits communications to the ticket room)
+  - `!c reopen <Ticked Index>` - Reopens the ticket that belongs to the current room
+  - `!c opentickets <user id>` - Lists all currently open tickets, or open tickets that are assigned to a specified staff member
+  - `!c setupcommunicationsroom <user id>` - Updates the DM between user and bot.
+  - `!c chat <user id>` - Create or join an existing chat for a user with a specified name or for the replied to message sender.
 
-* Messages to bot are relayed to management room
-* Management room users can reply by replying to the messages prefixing with `!reply`
-* Sender messages can be configured as anonymous
-* Configurable welcome message when bot is invited to a room
-* Users in the management room can write to rooms the bot is in via the `!message` command
+> Web-interface Features:
+- Support-bot ticket metadata display
+  - ❌ Open/Closed ticket count
+  - ❌ Average open ticket time
+  - ❌ Completed ticket count per date range and tags
+- Staff analytics per staff
+  - ❌ Open/Closed tickets
+  - ❌ Closed ticket count per date range and tags
+- Single ticket analysis
+  - ❌ Display ticket metadata (raised by, claimed by, name...)
+  - ❌ Display ticket tags
+  - ❌ Retrieve and display ticket messages (admin only)
+    - ❌ Text messages
+    - ❌ Images
+    - ❌ Reactions
+    - ❌ Replies
+    - ❌ Other messages (calls)
+- Single ticket commands
+  - ❌ Add/Modify ticket tags
+  - ❌ Close/Reopen ticket
+  - ❌ Assign staff to ticket
+- Support-bot commands
+  - ❌ Give staff status for user
+  - ❌ Raise ticket for user and staff
+  - ❌ Create custom tag
 
 ## Running
 

@@ -38,7 +38,7 @@ class Callbacks(object):
 
             config (Config): Bot configuration parameters
         """
-        self.client = client
+        self.client: AsyncClient = client
         self.store = store
         self.config = config
         self.command_prefix = config.command_prefix
@@ -252,7 +252,7 @@ class Callbacks(object):
         await redact.process()
         
 
-    async def message(self, room, event):
+    async def message(self, room:MatrixRoom, event):
         """Callback for when a message event is received
 
         Args:
@@ -261,6 +261,7 @@ class Callbacks(object):
             event (nio.events.room_events.RoomMessageText): The event defining the message
 
         """
+        await self.client.room_get_state(room.room_id)
         # If ignoring old messages, ignore messages older than 5 minutes
         if self.config.ignore_old_messages:
             if (
