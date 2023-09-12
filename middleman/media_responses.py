@@ -142,7 +142,7 @@ class Media(Message):
         if not self.client.rooms.get(room_id, None):            
             method, path = Api.sync(
                 self.client.access_token,
-                timeout=3000,
+                timeout=60000,
                 filter={"room":{"rooms":[room_id]}},
                 full_state=False,
             )
@@ -153,7 +153,7 @@ class Media(Message):
                 path,
                 # 0 if full_state: server doesn't respect timeout if full_state
                 # + 15: give server a chance to naturally return before we timeout
-                timeout=3000 / 1000 + 15,
+                timeout=60000 / 1000 + 15,
             )
         
             if type(sync_resp) == SyncResponse:
