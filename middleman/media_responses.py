@@ -157,7 +157,7 @@ class Media(Message):
             )
         
             if type(sync_resp) == SyncResponse:
-                await self.client.receive_response(sync_resp)
+                await self.client._handle_joined_rooms(sync_resp)
             else:
                 logger.warning(f"Sync response error received for room {room_id} with error code {sync_resp.status_code}")
 

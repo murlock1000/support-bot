@@ -188,7 +188,7 @@ class Callbacks(object):
             event (nio.events.room_events.RoomEncryptionEvent): The event
         """
         
-        logger.warn(f"Room encryption enabled in room {room.room_id}")
+        logger.warning(f"Room encryption enabled in room {room.room_id}")
         # Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
         if room.room_id in self.rooms_pending:
             for message_task in self.rooms_pending[room.room_id]:

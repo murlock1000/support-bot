@@ -206,9 +206,9 @@ class TextMessage(Message):
                 # + 15: give server a chance to naturally return before we timeout
                 timeout=3000 / 1000 + 15,
             )
-        
+            
             if type(sync_resp) == SyncResponse:
-                await self.client.receive_response(sync_resp)
+                await self.client._handle_joined_rooms(sync_resp)
             else:
                 logger.warning(f"Sync response error received for room {room_id} with error code {sync_resp.status_code}")
 
