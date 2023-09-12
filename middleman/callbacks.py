@@ -6,7 +6,7 @@ from datetime import datetime
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
     RoomKeyRequestError, RoomMemberEvent, Response, RoomKeyRequest, RedactionEvent, CallInviteEvent,
-    AsyncClient, CallEvent, 
+    AsyncClient, CallEvent, RoomEncryptionEvent,
 )
 
 from middleman.bot_commands import Command
@@ -177,6 +177,28 @@ class Callbacks(object):
             f"I have joined room {room.display_name} (`{room.room_id}`).",
             True,
         )
+
+    
+    async def room_encryption(self, room: MatrixRoom, event: RoomEncryptionEvent) -> None:
+        """Callback for when an event signaling that encryption has been enabled in a room is received
+
+        Args:
+            room (nio.rooms.MatrixRoom): The room the event came from
+
+            event (nio.events.room_events.RoomEncryptionEvent): The event
+        """
+        
+        logger.warn(f"Room encryption enabled in room {room.room_id}")
+        # Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
+        if room.room_id in self.rooms_pending:
+            for message_task in self.rooms_pending[room.room_id]:
+                try:
+                    logger.warn(f"Sending message to room {room.room_id}")
+                    await message_task[0](self.client.rooms[message_task[2]], message_task[3])
+                except Exception as e:
+                    logger.error(f"Error performing queued task after joining room: {e}")
+            # Clear tasks
+            self.rooms_pending[room.room_id] = []
     
     async def call_event(self, room: MatrixRoom, event: CallEvent):
         """Callback for when a m.call.invite event is received

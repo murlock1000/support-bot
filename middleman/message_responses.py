@@ -3,7 +3,7 @@ import re
 from typing import Union
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage
+from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, SyncResponse, Api
 from nio.rooms import MatrixRoom
 
 from middleman.event_responses import Message
@@ -190,7 +190,30 @@ class TextMessage(Message):
         
     async def send_message_to_room(self, text:str, room_id:str):
         
+        if not self.client.rooms.get(room_id, None):            
+            method, path = Api.sync(
+                self.client.access_token,
+                timeout=3000,
+                filter={"room":{"rooms":[room_id]}},
+                full_state=False,
+            )
+
+            sync_resp = await self.client._send(
+                SyncResponse,
+                method,
+                path,
+                # 0 if full_state: server doesn't respect timeout if full_state
+                # + 15: give server a chance to naturally return before we timeout
+                timeout=3000 / 1000 + 15,
+            )
+        
+            if type(sync_resp) == SyncResponse:
+                await self.client.receive_response(sync_resp)
+            else:
+                logger.warning(f"Sync response error received for room {room_id} with error code {sync_resp.status_code}")
+
         if not self.client.rooms.get(room_id, None):
+            logger.debug(f"Message put to queue for room {room_id}")
             task = (self.client.callbacks._message, room_id, self.event.room_id, self.event)
             if task[1] not in self.client.callbacks.rooms_pending:
                 self.client.callbacks.rooms_pending[task[1]] = []
