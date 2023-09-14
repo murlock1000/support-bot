@@ -11,13 +11,15 @@ from nio import (
 
 from middleman.bot_commands import Command
 from middleman.call_event_message_responses import CallEventMessage
-from middleman.chat_functions import send_text_to_room
+from middleman.chat_functions import send_text_to_room, send_shared_history_keys
 from middleman.config import Config
 from middleman.media_responses import Media
 from middleman.message_responses import TextMessage
 from middleman.models.Repositories.TicketRepository import TicketStatus
+from middleman.models.Staff import Staff
 from middleman.redact_responses import RedactMessage
 from middleman.storage import Storage
+from middleman.models.Support import Support
 from middleman.utils import with_ratelimit
 
 from middleman.models.Ticket import Ticket, ticket_name_pattern
@@ -119,64 +121,63 @@ class Callbacks(object):
             return
         logger.debug(
             f"Received a room member event for {room.display_name} | "
-            f"{event.sender}: {event.membership}"
+            f"{event.sender}: {event.membership} {event}"
         )
 
-        # Ignore if it was not us joining the room
-        if event.sender != self.client.user:
+        # Ignore our support bot membership events
+        if event.state_key == self.client.user:
+            return
+        
+        # If user left their primary communications room
+        if event.membership == 'leave':
             user = User.get_existing(self.store, event.sender)
             if user:
                 if user.room_id == room.room_id:
                     logger.info(f"User {user.user_id} left the primary communications channel room {room.room_id}. /"
                                 f"Unable to send messages to user until communications room is recreated.")
                     user.update_communications_room(None)
-            return
-        logger.debug(event)
-        
-        # Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
-        if event.membership == 'invite' and room.room_id in self.rooms_pending:
-            for message_task in self.rooms_pending[room.room_id]:
-                try:
-                    await message_task[0](self.client.rooms[message_task[2]], message_task[3])
-                except Exception as e:
-                    logger.error(f"Error performing queued task after joining room: {e}")
-            # Clear tasks
-            self.rooms_pending[room.room_id] = []
-        
-        # Ignore if we didn't join
-        if event.membership != "join" or event.prev_content is None or event.prev_content.get("membership") == "join":
-            return
-
-        # Get the user who invited the bot
-        room_creator = User.get_existing(self.store, room.creator)
-        if not room_creator:
-            # Create new User entry if doesn't exist yet
-            room_creator = User.create_new(self.store, room.creator)
-
-        logger.debug(f"Support bot invited by: {room_creator.user_id}")
-
-        # Update User Communication room id
-        room_creator.update_communications_room(room.room_id)
-        logger.debug(f"Set new communications room for user to: {room_creator.user_id}")
-
-        # Send welcome message if configured
-        if self.config.welcome_message and room.is_group:
-            if room.room_id in self.welcome_message_sent_to_room:
-                logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
+        elif event.membership == 'join':
+            support = Support.get_existing(self.store, event.sender)
+            if not support:
+                support = Staff.get_existing(self.store, event.sender)
+            if not support:
                 return
-            # Send welcome message
-            logger.info(f"Sending welcome message to room {room.room_id}")
-            self.welcome_message_sent_to_room.insert(0, room.room_id)
-            await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
+            
+            await send_shared_history_keys(self.client, room.room_id, [support.user_id])
+        elif event.membership == 'invite':
+            # Ignore invites sent by us
+            if event.sender == self.client.user:
+                return
+            # Get the user who invited the bot
+            room_creator = User.get_existing(self.store, room.creator)
+            if not room_creator:
+                # Create new User entry if doesn't exist yet
+                room_creator = User.create_new(self.store, room.creator)
 
-        # Notify the management room for visibility
-        logger.info(f"Notifying management room of room join to {room.room_id}")
-        await send_text_to_room(
-            self.client,
-            self.config.management_room_id,
-            f"I have joined room {room.display_name} (`{room.room_id}`).",
-            True,
-        )
+            logger.debug(f"Support bot invited by: {room_creator.user_id}")
+
+            # Update User Communication room id
+            room_creator.update_communications_room(room.room_id)
+            logger.debug(f"Set new communications room for user to: {room_creator.user_id}")
+
+            # Send welcome message if configured
+            if self.config.welcome_message and room.is_group:
+                if room.room_id in self.welcome_message_sent_to_room:
+                    logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
+                    return
+                # Send welcome message
+                logger.info(f"Sending welcome message to room {room.room_id}")
+                self.welcome_message_sent_to_room.insert(0, room.room_id)
+                await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
+
+            # Notify the management room for visibility
+            logger.info(f"Notifying management room of room join to {room.room_id}")
+            await send_text_to_room(
+                self.client,
+                self.config.management_room_id,
+                f"I have joined room {room.display_name} (`{room.room_id}`).",
+                True,
+            )
 
     
     async def room_encryption(self, room: MatrixRoom, event: RoomEncryptionEvent) -> None:
