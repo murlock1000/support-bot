@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import asyncio
+from threading import Thread
 import logging
 from time import sleep
 
@@ -35,17 +37,21 @@ from middleman.config import Config
 from middleman.models.Repositories.Repositories import Repositories
 from middleman.storage import Storage
 from middleman.utils import sleep_ms
+from middleman.grpc.server import serve, close
 
 logger = logging.getLogger(__name__)
 
 
-async def main(config: Config):
+async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:asyncio.AbstractEventLoop):
     # Configure the database
     store = Storage(config.database)
 
     # Initialise global model repositories:
     repositories = Repositories(store)
     store.set_repositories(repositories)
+    
+    # Start grpc server
+    asyncio.run_coroutine_threadsafe(serve(main_loop), grpc_loop)
     
     # Configuration options for the AsyncClient
     client_config = AsyncClientConfig(
