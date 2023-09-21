@@ -25,5 +25,10 @@ dist/
 # Config file
 config.yaml
 
+# TLS configuration
+localhost.crt
+localhost.key
+root.crt
+
 # Log files
 *.log

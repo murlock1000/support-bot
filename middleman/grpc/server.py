@@ -1,4 +1,5 @@
 import asyncio
+import middleman.grpc._credentials as _credentials
 import logging
 import grpc
 import middleman.grpc.autogen.helloworld_pb2 as helloworld_pb2
@@ -24,8 +25,21 @@ class Greeter(helloworld_pb2_grpc.GreeterServicer):
 async def serve(main_loop: asyncio.AbstractEventLoop) -> None:
     server = grpc.aio.server()
     helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(main_loop), server)
+    
+    # Loading credentials
+    server_credentials = grpc.ssl_server_credentials(
+        (
+            (
+                _credentials.SERVER_CERTIFICATE_KEY,
+                _credentials.SERVER_CERTIFICATE,
+            ),
+        )
+    )
+    
     listen_addr = "[::]:50051"
-    server.add_insecure_port(listen_addr)
+    # Pass down credentials
+    server.add_secure_port(listen_addr, server_credentials)
+    
     logging.info("Starting server on %s", listen_addr)
     await server.start()
     
