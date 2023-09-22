@@ -37,7 +37,7 @@ from middleman.config import Config
 from middleman.models.Repositories.Repositories import Repositories
 from middleman.storage import Storage
 from middleman.utils import sleep_ms
-from middleman.grpc.server import serve, close
+import grpc_server.server
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
     store.set_repositories(repositories)
     
     # Start grpc server
-    asyncio.run_coroutine_threadsafe(serve(main_loop), grpc_loop)
+    asyncio.run_coroutine_threadsafe(grpc_server.server.serve(main_loop), grpc_loop)
     
     # Configuration options for the AsyncClient
     client_config = AsyncClientConfig(

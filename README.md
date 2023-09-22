@@ -96,6 +96,10 @@ other non-text messages will not currently be relayed either way.
 
 ## Development
 
+## GRPC protobuf generation
+Generate protobuf files in proto/ from root directory:
+`python -m grpc_tools.protoc -I grpc_server --python_out=. --pyi_out=. --grpc_python_out=. grpc_server/proto/support_bot.proto`
+
 If you need help or want to otherwise chat, jump to `#middleman:elokapina.fi`!
 
 ### Dependencies

@@ -7,7 +7,7 @@ from threading import Thread
 import aiolog
 
 from middleman.config import Config
-from middleman.grpc.server import close
+import grpc_server.server
 
 def f(loop:asyncio.AbstractEventLoop):
     asyncio.set_event_loop(loop)
@@ -40,7 +40,7 @@ try:
     except Exception as e:
         print("Main loop exited: " + str(e))
     finally:
-        asyncio.run_coroutine_threadsafe(close(grpc_loop), grpc_loop)
+        asyncio.run_coroutine_threadsafe(grpc_server.server.close(grpc_loop), grpc_loop)
         t.join(timeout=3)
 except ImportError as e:
     print("Unable to import middleman.main:", e)

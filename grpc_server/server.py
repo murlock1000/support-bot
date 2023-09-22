@@ -1,30 +1,30 @@
 import asyncio
-import middleman.grpc._credentials as _credentials
+import grpc_server._credentials as _credentials
 import logging
 import grpc
-import middleman.grpc.autogen.helloworld_pb2 as helloworld_pb2
-import middleman.grpc.autogen.helloworld_pb2_grpc as helloworld_pb2_grpc
+import proto.support_bot_pb2 as support_bot_pb2
+import proto.support_bot_pb2_grpc as support_bot_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
 # Coroutines to be invoked when the event loop is shutting down.
 _cleanup_coroutines = []
 
-class Greeter(helloworld_pb2_grpc.GreeterServicer):
+class Greeter(support_bot_pb2_grpc.GreeterServicer):
     def __init__(self, loop) -> None:
         self.main_loop = loop
         super().__init__()
         
     async def SayHello(
         self,
-        request: helloworld_pb2.HelloRequest,
+        request: support_bot_pb2.HelloRequest,
         context: grpc.aio.ServicerContext,
-    ) -> helloworld_pb2.HelloReply:
-        return helloworld_pb2.HelloReply(message="Hello, %s!" % request.name)
+    ) -> support_bot_pb2.HelloReply:
+        return support_bot_pb2.HelloReply(message="Hello, %s!" % request.name)
     
 async def serve(main_loop: asyncio.AbstractEventLoop) -> None:
     server = grpc.aio.server()
-    helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(main_loop), server)
+    support_bot_pb2_grpc.add_GreeterServicer_to_server(Greeter(main_loop), server)
     
     # Loading credentials
     server_credentials = grpc.ssl_server_credentials(

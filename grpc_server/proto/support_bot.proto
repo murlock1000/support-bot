@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package helloworld;
+package support_bot;
 
 // The greeting service definition.
 service Greeter {
@@ -19,3 +19,4 @@ message HelloRequest {
 message HelloReply {
   string message = 1;
 }
+
