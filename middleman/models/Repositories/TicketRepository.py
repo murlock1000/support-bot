@@ -1,5 +1,6 @@
 from middleman.storage import Storage
 from enum import Enum
+from datetime import datetime
 
 class TicketStatus(Enum):
     OPEN = "open"
@@ -11,10 +12,10 @@ class TicketRepository(object):
     def __init__(self, storage:Storage) -> None:
         self.storage = storage
     
-    def create_ticket(self, user_id:str, ticket_name:str):
+    def create_ticket(self, user_id:str, ticket_name:str, raised_at:datetime):
         self.storage._execute("""
-            INSERT INTO Tickets (user_id, ticket_name) values (?, ?) RETURNING id;
-        """, (user_id, ticket_name,))
+            INSERT INTO Tickets (user_id, ticket_name, raised_at) values (?, ?, ?) RETURNING id;
+        """, (user_id, ticket_name, raised_at,))
         inserted_id = self.storage.cursor.fetchone()
         if inserted_id:
             return inserted_id[0] #BUG - lastrowid always returns 0??
@@ -71,6 +72,11 @@ class TicketRepository(object):
             DELETE FROM TicketsStaffRelation WHERE ticket_id= ? AND staff_id= ?
         """, (ticket_id, staff_id))
     
+    def set_ticket_closed_at(self, ticket_id:int, closed_at:datetime):
+        self.storage._execute("""
+            UPDATE Tickets SET closed_at= ? WHERE id=?
+        """, (closed_at, ticket_id))
+    
     def set_ticket_status(self, ticket_id:int, status:str):
         self.storage._execute("""
             UPDATE Tickets SET status= ? WHERE id=?
@@ -107,7 +113,7 @@ class TicketRepository(object):
 
     def get_all_fields(self, ticket_id:int):
         self.storage._execute("""
-            select id, user_id, user_room_id, status, ticket_name from Tickets where id = ?;
+            select id, user_id, user_room_id, status, ticket_name, raised_at, closed_at from Tickets where id = ?;
         """, (ticket_id,))
         row = self.storage.cursor.fetchone()
         # TODO: rename user_room_id to ticket_room_id (specifies staff-bot communications room for the ticket)
@@ -117,6 +123,8 @@ class TicketRepository(object):
                 "ticket_room_id": row[2],
                 "status": row[3],
                 "ticket_name": row[4],
+                "raised_at": row[5],
+                "closed_at": row[6],
             }
 
     def get_open_tickets(self):

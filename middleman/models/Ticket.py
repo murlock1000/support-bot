@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse, MatrixRoom, Response
 
@@ -32,6 +33,8 @@ class Ticket(object):
         self.ticket_room_id =   fields['ticket_room_id']
         self.status =           TicketStatus(fields['status'])
         self.ticket_name =      fields['ticket_name']
+        self.raised_at =        fields['raised_at']
+        self.closed_at =        fields['closed_at']
 
     @staticmethod
     def get_existing(storage: Storage, ticket_id: int):
@@ -53,7 +56,8 @@ class Ticket(object):
     @staticmethod
     def create_new(storage: Storage, user_id:str, ticket_name:str="General"):
         # Create Ticket entry
-        ticket_id = storage.repositories.ticketRep.create_ticket(user_id, ticket_name)
+        raised_at = datetime.now()
+        ticket_id = storage.repositories.ticketRep.create_ticket(user_id, ticket_name, raised_at)
 
         if ticket_id:
             ticket = Ticket(storage, ticket_id)
@@ -149,13 +153,28 @@ class Ticket(object):
 
         return [s['user_id'] for s in support]
 
+    def _close_ticket(self):
+        self.ticketRep.set_ticket_closed_at(self.id, datetime.now())
+        
+        # Remove from cache if closing ticket
+        if Ticket.ticket_cache.get(self.id):
+            Ticket.ticket_cache.pop(self.id)
+    
+    def _open_ticket(self):
+        self.ticketRep.set_ticket_closed_at(self.id, None)
+        
+        # Remove from cache if closing ticket
+        if Ticket.ticket_cache.get(self.id):
+            Ticket.ticket_cache.pop(self.id)
+
     def set_status(self, status:TicketStatus):
         self.ticketRep.set_ticket_status(self.id, status.value)
         self.status = status
 
-        # Remove from cache if closing ticket
-        if status == TicketStatus.CLOSED and Ticket.ticket_cache.get(self.id):
-            Ticket.ticket_cache.pop(self.id)
+        if status == TicketStatus.CLOSED:
+            self._close_ticket()
+        elif status == TicketStatus.OPEN:
+            self._open_ticket()
 
     def find_user_current_ticket_id(self):
         return self.userRep.get_user_current_ticket_id(self.user_id)
