@@ -102,3 +102,65 @@ class Greeter(object):
             proto_dot_support__bot__pb2.HelloReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+
+class MetaHandlerStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.FetchAvatarURL = channel.unary_unary(
+                '/support_bot.MetaHandler/FetchAvatarURL',
+                request_serializer=proto_dot_support__bot__pb2.AvatarURLRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.AvatarURLReply.FromString,
+                )
+
+
+class MetaHandlerServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def FetchAvatarURL(self, request, context):
+        """Fetch avatar mxc URL
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_MetaHandlerServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'FetchAvatarURL': grpc.unary_unary_rpc_method_handler(
+                    servicer.FetchAvatarURL,
+                    request_deserializer=proto_dot_support__bot__pb2.AvatarURLRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.AvatarURLReply.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'support_bot.MetaHandler', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+ # This class is part of an EXPERIMENTAL API.
+class MetaHandler(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def FetchAvatarURL(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.MetaHandler/FetchAvatarURL',
+            proto_dot_support__bot__pb2.AvatarURLRequest.SerializeToString,
+            proto_dot_support__bot__pb2.AvatarURLReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

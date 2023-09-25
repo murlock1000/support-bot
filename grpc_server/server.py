@@ -27,7 +27,8 @@ class Greeter(support_bot_pb2_grpc.GreeterServicer):
     
 async def serve(main_loop: asyncio.AbstractEventLoop, tm: ThreadManager) -> None:
     server = grpc.aio.server()
-    support_bot_pb2_grpc.add_GreeterServicer_to_server(MetaHandler(main_loop, tm), server)
+    support_bot_pb2_grpc.add_GreeterServicer_to_server(Greeter(main_loop, tm), server)
+    support_bot_pb2_grpc.add_MetaHandlerServicer_to_server(MetaHandler(main_loop, tm), server)
     
     # Loading credentials
     server_credentials = grpc.ssl_server_credentials(
