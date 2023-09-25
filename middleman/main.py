@@ -50,9 +50,6 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
     repositories = Repositories(store)
     store.set_repositories(repositories)
     
-    # Start grpc server
-    asyncio.run_coroutine_threadsafe(grpc_server.server.serve(main_loop), grpc_loop)
-    
     # Configuration options for the AsyncClient
     client_config = AsyncClientConfig(
         max_limit_exceeded=0,
@@ -69,6 +66,10 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
         store_path=config.store_path,
         config=client_config,
     )
+    
+    # Start grpc server
+    tm = grpc_server.server.ThreadManager(client, store, main_loop)
+    asyncio.run_coroutine_threadsafe(grpc_server.server.serve(main_loop, tm), grpc_loop)
 
     if config.user_token:
         client.access_token = config.user_token

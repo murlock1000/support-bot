@@ -15,11 +15,11 @@
 
 import logging
 
-import middleman.grpc_server._credentials as _credentials
+import grpc_server._credentials as _credentials
 import grpc
 
-helloworld_pb2, helloworld_pb2_grpc = grpc.protos_and_services(
-    "./middleman/grpc/protos/helloworld.proto",
+support_bot_pb2, support_bot_pb2_grpc = grpc.protos_and_services(
+    "grpc_server/proto/support_bot",
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ _SERVER_ADDR_TEMPLATE = "localhost:%d"
 
 
 def send_rpc(stub):
-    request = helloworld_pb2.HelloRequest(name="you")
+    request = support_bot_pb2.HelloRequest(name="you")
     try:
         response = stub.SayHello(request)
     except grpc.RpcError as rpc_error:
@@ -48,7 +48,7 @@ def main():
     with grpc.secure_channel(
         _SERVER_ADDR_TEMPLATE % _PORT, channel_credential
     ) as channel:
-        stub = helloworld_pb2_grpc.GreeterStub(channel)
+        stub = support_bot_pb2_grpc.GreeterStub(channel)
         send_rpc(stub)
 
 

@@ -15,7 +15,7 @@ from nio import (
     RoomPreset,
     RoomVisibility,
     RoomInviteError,
-    RoomInviteResponse, RoomKickResponse, RoomKickError, MatrixRoom, RoomAvatarEvent,
+    RoomInviteResponse, RoomKickResponse, RoomKickError, MatrixRoom, RoomAvatarEvent, ProfileGetAvatarResponse, DownloadResponse,
     ToDeviceMessage
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
@@ -242,10 +242,12 @@ def is_user_in_room(room:MatrixRoom, mxid:str) -> bool:
         if user == mxid:
             return True
     return False
+
 def is_room_private_msg(room: MatrixRoom, mxid: str) -> bool:
     if room.member_count == 2:
         return is_user_in_room(room, mxid)
     return False
+
 def find_private_msg(client:AsyncClient, mxid: str) -> MatrixRoom:
     # Find if we already have a common room with user (Which is not a ticket room):
     msg_room = None
@@ -275,6 +277,7 @@ async def create_room(
     elif isinstance(resp, RoomCreateError):
         logger.exception(f"Failed to create a new room with error: {resp.status_code}")
     return resp
+
 async def invite_to_room(
         client: AsyncClient, mxid: str, room_id: str
     ) -> Union[RoomInviteResponse, RoomInviteError]:
@@ -318,7 +321,6 @@ async def send_shared_history_keys(client:AsyncClient, room_id: str, user_ids:[s
     await send_shared_history_inbound_sessions(client, room, devices_by_user)
 
 async def send_shared_history_inbound_sessions(client:AsyncClient, room:MatrixRoom, devices_by_user_iter: Dict[str, Iterator[OlmDevice]]):
-
     # Get stored InboundGroupSessions - currently storage does not differentiate between shareable and private, so we send all!!!.
     shared_history_sessions:defaultdict[str, defaultdict[str, InboundGroupSession]] = client.olm.inbound_group_store._entries[room.room_id]
 
@@ -390,4 +392,12 @@ async def kick_from_room(
         logger.debug(f"kicked user {mxid} from room: {room_id}")
     elif isinstance(resp, RoomKickError):
         logger.exception(f"Failed to kick user {mxid} from room {room_id} with error: {resp.status_code}")
+    return resp
+
+async def get_user_profile_pic(client: AsyncClient, user_id: str):
+    resp = await client.get_avatar(user_id)
+    if isinstance(resp, ProfileGetAvatarResponse):
+        resp = await client.download(resp.avatar_url)
+    if not isinstance(resp, DownloadResponse):
+        logger.warning(f"Failed to fetch user profile: {resp.status_code}, {resp.message}")
     return resp

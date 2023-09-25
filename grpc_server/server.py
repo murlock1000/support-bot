@@ -2,6 +2,8 @@ import asyncio
 import grpc_server._credentials as _credentials
 import logging
 import grpc
+from grpc_server.meta_handler import MetaHandler
+from grpc_server.thread_manager import ThreadManager
 import proto.support_bot_pb2 as support_bot_pb2
 import proto.support_bot_pb2_grpc as support_bot_pb2_grpc
 
@@ -11,8 +13,9 @@ logger = logging.getLogger(__name__)
 _cleanup_coroutines = []
 
 class Greeter(support_bot_pb2_grpc.GreeterServicer):
-    def __init__(self, loop) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:
         self.main_loop = loop
+        self.tm = tm
         super().__init__()
         
     async def SayHello(
@@ -22,9 +25,9 @@ class Greeter(support_bot_pb2_grpc.GreeterServicer):
     ) -> support_bot_pb2.HelloReply:
         return support_bot_pb2.HelloReply(message="Hello, %s!" % request.name)
     
-async def serve(main_loop: asyncio.AbstractEventLoop) -> None:
+async def serve(main_loop: asyncio.AbstractEventLoop, tm: ThreadManager) -> None:
     server = grpc.aio.server()
-    support_bot_pb2_grpc.add_GreeterServicer_to_server(Greeter(main_loop), server)
+    support_bot_pb2_grpc.add_GreeterServicer_to_server(MetaHandler(main_loop, tm), server)
     
     # Loading credentials
     server_credentials = grpc.ssl_server_credentials(
