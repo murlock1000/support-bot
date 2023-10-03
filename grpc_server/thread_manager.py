@@ -1,6 +1,7 @@
 from concurrent.futures import Future
 from datetime import datetime, timedelta
 from middleman.chat_functions import get_user_profile_pic
+from middleman.bot_commands import Command
 from middleman.storage import Storage
 import logging
 
@@ -44,3 +45,38 @@ class ThreadManager():
             return await self.wait_for(future, self.timeout)
         except asyncio.TimeoutError:
             return ErrorResponse("Timed out while fetching avatar url", "timeout")
+        
+    async def claim_ticket(self, user_id: str, ticket_id:str) -> Union[ErrorResponse, None]:
+        
+        future = asyncio.run_coroutine_threadsafe(Command.__claim(self.client, self.store, user_id, ticket_id), self.main_loop)
+        try:
+            err =  await self.wait_for(future, self.timeout)
+            if err:
+                return ErrorResponse(err, "err")
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while claiming ticket", "timeout")
+        
+    async def claim_for_ticket(self, user_id: str, ticket_id:str) -> Union[ErrorResponse, None]:
+        
+        future = asyncio.run_coroutine_threadsafe(Command.__claimfor(self.client, self.store, user_id, ticket_id), self.main_loop)
+        try:
+            err =  await self.wait_for(future, self.timeout)
+            if err:
+                return ErrorResponse(err, err)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while claiming for ticket", "timeout")
+
+    async def close_ticket(self, ticket_id:str) -> Union[ErrorResponse, None]:
+        future = asyncio.run_coroutine_threadsafe(Command.__close_ticket(self.client, self.store, ticket_id, self.config.management_room_id), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while closing ticket", "timeout")
+        
+    async def reopen_ticket(self, ticket_id:str) -> Union[ErrorResponse, None]:
+        future = asyncio.run_coroutine_threadsafe(Command.__reopen_ticket(self.client, self.store, ticket_id, self.config.management_room_id), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while reopening ticket", "timeout")
+        

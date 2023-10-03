@@ -81,12 +81,39 @@ class Ticket(object):
             return int(ticket_id)
         
         return storage.repositories.ticketRep.get_ticket_id(room.room_id)
+    
+    @staticmethod
+    def get_ticket_id_from_room_id(storage:Storage, room_id:str):        
+        return storage.repositories.ticketRep.get_ticket_id(room_id)
 
     @staticmethod
     def find_ticket_of_room(store:Storage, room:MatrixRoom):
         is_open_ticket_room = False
 
         ticket_id = Ticket.find_room_ticket_id(store, room)
+        if not ticket_id:
+            return None
+
+        should_add_to_cache = False
+        ticket = Ticket.ticket_cache.get(ticket_id, None)
+        # Cache hit
+        if ticket:
+            return ticket
+
+        # Cache miss
+        ticket = Ticket.get_existing(store, ticket_id)
+
+        if ticket:
+            Ticket.ticket_cache[ticket.id] = ticket
+            return ticket
+        else:
+            return None
+        
+    @staticmethod
+    def find_ticket_of_room_id(store:Storage, room_id:str):
+        is_open_ticket_room = False
+
+        ticket_id = Ticket.get_ticket_id_from_room_id(store, room_id)
         if not ticket_id:
             return None
 
@@ -152,6 +179,11 @@ class Ticket(object):
         support = self.ticketRep.get_assigned_support(self.id)
 
         return [s['user_id'] for s in support]
+    
+    def get_assigned_staff(self):
+        staff = self.ticketRep.get_assigned_staff(self.id)
+
+        return [s['user_id'] for s in staff]
 
     def _close_ticket(self):
         self.ticketRep.set_ticket_closed_at(self.id, datetime.now())

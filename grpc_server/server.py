@@ -2,7 +2,7 @@ import asyncio
 import grpc_server._credentials as _credentials
 import logging
 import grpc
-from grpc_server.meta_handler import MetaHandler
+from grpc_server.meta_handler import CommandHandler, MetaHandler
 from grpc_server.thread_manager import ThreadManager
 import proto.support_bot_pb2 as support_bot_pb2
 import proto.support_bot_pb2_grpc as support_bot_pb2_grpc
@@ -29,6 +29,7 @@ async def serve(main_loop: asyncio.AbstractEventLoop, tm: ThreadManager) -> None
     server = grpc.aio.server()
     support_bot_pb2_grpc.add_GreeterServicer_to_server(Greeter(main_loop, tm), server)
     support_bot_pb2_grpc.add_MetaHandlerServicer_to_server(MetaHandler(main_loop, tm), server)
+    support_bot_pb2_grpc.add_CommandHandlerServicer_to_server(CommandHandler(main_loop, tm), server)
     
     # Loading credentials
     server_credentials = grpc.ssl_server_credentials(
