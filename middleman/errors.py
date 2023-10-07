@@ -21,7 +21,7 @@ class RoomNotFound(ErrorResponse):
 
 class RoomNotEncrypted(ErrorResponse):
     def __init__(self, room_id):
-        super(TicketNotFound, self).__init__(f"Room with ID {room_id} is not encrypted.", Errors.ROOM_STATE_ERROR)
+        super(TicketNotFound, self).__init__(f"Room with ID {room_id} is not encrypted.", Errors.NIO_ERROR)
 
 class ConfigError(RuntimeError):
     """An error encountered during reading the config file
