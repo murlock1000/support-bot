@@ -180,6 +180,12 @@ class Ticket(object):
 
         return [s['user_id'] for s in support]
     
+    def unassign_support(self, support_id:str):
+        self.ticketRep.remove_support_from_ticket(self.id, support_id)
+        
+    def unassign_staff(self, staff_id:str):
+        self.ticketRep.remove_staff_from_ticket(self.id, staff_id)
+    
     def get_assigned_staff(self):
         staff = self.ticketRep.get_assigned_staff(self.id)
 

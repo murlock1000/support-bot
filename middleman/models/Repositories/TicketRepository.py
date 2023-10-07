@@ -67,6 +67,11 @@ class TicketRepository(object):
             } for row in support
         ]
     
+    def remove_support_from_ticket(self, ticket_id: int, support_id:str):
+        self.storage._execute("""
+            DELETE FROM TicketsSupportRelation WHERE ticket_id= ? AND support_id= ?
+        """, (ticket_id, support_id))
+    
     def remove_staff_from_ticket(self, ticket_id: int, staff_id:str):
         self.storage._execute("""
             DELETE FROM TicketsStaffRelation WHERE ticket_id= ? AND staff_id= ?

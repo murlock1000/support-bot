@@ -31,26 +31,26 @@ message AvatarURLRequest{
 
 message AvatarURLReply {
   string avatar_url = 1;
-  string error_code = 2;
 }
 
 service CommandHandler {
-  rpc RemoveStaffFromTicket (UserWithTicket) returns (CommandResponse) {}
-  rpc CloseTicket (UserWithTicket) returns (CommandResponse) {}
-  rpc ClaimTicket (UserWithTicket) returns (CommandResponse) {}
-  rpc ClaimForTicket (UserWithTicket) returns (CommandResponse) {}
+  rpc RemoveStaffFromTicket (UserWithTicketRequest) returns (EmptyResponse) {}
+  rpc CloseTicket (TicketRequest) returns (EmptyResponse) {}
+  rpc ClaimTicket (UserWithTicketRequest) returns (EmptyResponse) {}
+  rpc ClaimForTicket (UserWithTicketRequest) returns (EmptyResponse) {}
+  rpc ReopenTicket (TicketRequest) returns (EmptyResponse) {}
 }
 
-message UserWithTicket {
+message UserWithTicketRequest {
   string user_id = 1;
   string ticket_id = 2;
 }
 
-message Ticket {
+message TicketRequest {
   string ticket_id = 1;
 }
 
-message CommandResponse {
-  string error_code = 1;
+message EmptyResponse {
+  
 }
 

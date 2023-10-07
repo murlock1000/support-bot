@@ -23,14 +23,12 @@ class AvatarURLRequest(_message.Message):
     def __init__(self, user_id: _Optional[str] = ...) -> None: ...
 
 class AvatarURLReply(_message.Message):
-    __slots__ = ["avatar_url", "error_code"]
+    __slots__ = ["avatar_url"]
     AVATAR_URL_FIELD_NUMBER: _ClassVar[int]
-    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
     avatar_url: str
-    error_code: str
-    def __init__(self, avatar_url: _Optional[str] = ..., error_code: _Optional[str] = ...) -> None: ...
+    def __init__(self, avatar_url: _Optional[str] = ...) -> None: ...
 
-class UserWithTicket(_message.Message):
+class UserWithTicketRequest(_message.Message):
     __slots__ = ["user_id", "ticket_id"]
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     TICKET_ID_FIELD_NUMBER: _ClassVar[int]
@@ -38,14 +36,12 @@ class UserWithTicket(_message.Message):
     ticket_id: str
     def __init__(self, user_id: _Optional[str] = ..., ticket_id: _Optional[str] = ...) -> None: ...
 
-class Ticket(_message.Message):
+class TicketRequest(_message.Message):
     __slots__ = ["ticket_id"]
     TICKET_ID_FIELD_NUMBER: _ClassVar[int]
     ticket_id: str
     def __init__(self, ticket_id: _Optional[str] = ...) -> None: ...
 
-class CommandResponse(_message.Message):
-    __slots__ = ["error_code"]
-    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
-    error_code: str
-    def __init__(self, error_code: _Optional[str] = ...) -> None: ...
+class EmptyResponse(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...

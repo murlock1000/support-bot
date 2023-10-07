@@ -19,6 +19,7 @@ from nio import (
     ToDeviceMessage
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
+from middleman.errors import RoomNotEncrypted, RoomNotFound
 #from middleman.models.Ticket import Ticket
 
 #from middleman.config import Config
@@ -307,11 +308,9 @@ async def send_shared_history_keys(client:AsyncClient, room_id: str, user_ids:[s
     # Get room
     room = client.rooms.get(room_id)
     if not room:
-        logger.error("Unknown room. Not sharing decryption keys")
-        return
+        return RoomNotFound(room_id)
     if not room.encrypted:
-        logger.error("Room is unencrypted. Not sharing decryption keys")
-        return
+        return RoomNotEncrypted(room_id)
 
     # TODO: find way to fetch user devices from server.
     # Get user devices
@@ -346,6 +345,7 @@ async def send_shared_history_inbound_sessions(client:AsyncClient, room:MatrixRo
                     )
 
                 resp = await client.send_to_device_messages()
+
 def _encrypt_forwarding_key(
         client: AsyncClient,
         room_id,  # type: str

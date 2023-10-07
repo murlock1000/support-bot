@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/support_bot.proto\x12\x0bsupport_bot\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t\"#\n\x10\x41vatarURLRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"8\n\x0e\x41vatarURLReply\x12\x12\n\navatar_url\x18\x01 \x01(\t\x12\x12\n\nerror_code\x18\x02 \x01(\t\"4\n\x0eUserWithTicket\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x11\n\tticket_id\x18\x02 \x01(\t\"\x1b\n\x06Ticket\x12\x11\n\tticket_id\x18\x01 \x01(\t\"%\n\x0f\x43ommandResponse\x12\x12\n\nerror_code\x18\x01 \x01(\t2\x92\x01\n\x07Greeter\x12@\n\x08SayHello\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x12\x45\n\rSayHelloAgain\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x32]\n\x0bMetaHandler\x12N\n\x0e\x46\x65tchAvatarURL\x12\x1d.support_bot.AvatarURLRequest\x1a\x1b.support_bot.AvatarURLReply\"\x00\x32\xcd\x02\n\x0e\x43ommandHandler\x12T\n\x15RemoveStaffFromTicket\x12\x1b.support_bot.UserWithTicket\x1a\x1c.support_bot.CommandResponse\"\x00\x12J\n\x0b\x43loseTicket\x12\x1b.support_bot.UserWithTicket\x1a\x1c.support_bot.CommandResponse\"\x00\x12J\n\x0b\x43laimTicket\x12\x1b.support_bot.UserWithTicket\x1a\x1c.support_bot.CommandResponse\"\x00\x12M\n\x0e\x43laimForTicket\x12\x1b.support_bot.UserWithTicket\x1a\x1c.support_bot.CommandResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/support_bot.proto\x12\x0bsupport_bot\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t\"#\n\x10\x41vatarURLRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"$\n\x0e\x41vatarURLReply\x12\x12\n\navatar_url\x18\x01 \x01(\t\";\n\x15UserWithTicketRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x11\n\tticket_id\x18\x02 \x01(\t\"\"\n\rTicketRequest\x12\x11\n\tticket_id\x18\x01 \x01(\t\"\x0f\n\rEmptyResponse2\x92\x01\n\x07Greeter\x12@\n\x08SayHello\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x12\x45\n\rSayHelloAgain\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x32]\n\x0bMetaHandler\x12N\n\x0e\x46\x65tchAvatarURL\x12\x1d.support_bot.AvatarURLRequest\x1a\x1b.support_bot.AvatarURLReply\"\x00\x32\xa3\x03\n\x0e\x43ommandHandler\x12Y\n\x15RemoveStaffFromTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12G\n\x0b\x43loseTicket\x12\x1a.support_bot.TicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12O\n\x0b\x43laimTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12R\n\x0e\x43laimForTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12H\n\x0cReopenTicket\x12\x1a.support_bot.TicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -28,17 +28,17 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_AVATARURLREQUEST']._serialized_start=101
   _globals['_AVATARURLREQUEST']._serialized_end=136
   _globals['_AVATARURLREPLY']._serialized_start=138
-  _globals['_AVATARURLREPLY']._serialized_end=194
-  _globals['_USERWITHTICKET']._serialized_start=196
-  _globals['_USERWITHTICKET']._serialized_end=248
-  _globals['_TICKET']._serialized_start=250
-  _globals['_TICKET']._serialized_end=277
-  _globals['_COMMANDRESPONSE']._serialized_start=279
-  _globals['_COMMANDRESPONSE']._serialized_end=316
-  _globals['_GREETER']._serialized_start=319
-  _globals['_GREETER']._serialized_end=465
-  _globals['_METAHANDLER']._serialized_start=467
-  _globals['_METAHANDLER']._serialized_end=560
-  _globals['_COMMANDHANDLER']._serialized_start=563
-  _globals['_COMMANDHANDLER']._serialized_end=896
+  _globals['_AVATARURLREPLY']._serialized_end=174
+  _globals['_USERWITHTICKETREQUEST']._serialized_start=176
+  _globals['_USERWITHTICKETREQUEST']._serialized_end=235
+  _globals['_TICKETREQUEST']._serialized_start=237
+  _globals['_TICKETREQUEST']._serialized_end=271
+  _globals['_EMPTYRESPONSE']._serialized_start=273
+  _globals['_EMPTYRESPONSE']._serialized_end=288
+  _globals['_GREETER']._serialized_start=291
+  _globals['_GREETER']._serialized_end=437
+  _globals['_METAHANDLER']._serialized_start=439
+  _globals['_METAHANDLER']._serialized_end=532
+  _globals['_COMMANDHANDLER']._serialized_start=535
+  _globals['_COMMANDHANDLER']._serialized_end=954
 # @@protoc_insertion_point(module_scope)

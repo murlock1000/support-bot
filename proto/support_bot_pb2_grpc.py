@@ -177,23 +177,28 @@ class CommandHandlerStub(object):
         """
         self.RemoveStaffFromTicket = channel.unary_unary(
                 '/support_bot.CommandHandler/RemoveStaffFromTicket',
-                request_serializer=proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-                response_deserializer=proto_dot_support__bot__pb2.CommandResponse.FromString,
+                request_serializer=proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
         self.CloseTicket = channel.unary_unary(
                 '/support_bot.CommandHandler/CloseTicket',
-                request_serializer=proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-                response_deserializer=proto_dot_support__bot__pb2.CommandResponse.FromString,
+                request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
         self.ClaimTicket = channel.unary_unary(
                 '/support_bot.CommandHandler/ClaimTicket',
-                request_serializer=proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-                response_deserializer=proto_dot_support__bot__pb2.CommandResponse.FromString,
+                request_serializer=proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
         self.ClaimForTicket = channel.unary_unary(
                 '/support_bot.CommandHandler/ClaimForTicket',
-                request_serializer=proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-                response_deserializer=proto_dot_support__bot__pb2.CommandResponse.FromString,
+                request_serializer=proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
+        self.ReopenTicket = channel.unary_unary(
+                '/support_bot.CommandHandler/ReopenTicket',
+                request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
 
 
@@ -224,28 +229,39 @@ class CommandHandlerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReopenTicket(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CommandHandlerServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'RemoveStaffFromTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.RemoveStaffFromTicket,
-                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicket.FromString,
-                    response_serializer=proto_dot_support__bot__pb2.CommandResponse.SerializeToString,
+                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
             'CloseTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.CloseTicket,
-                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicket.FromString,
-                    response_serializer=proto_dot_support__bot__pb2.CommandResponse.SerializeToString,
+                    request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
             'ClaimTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.ClaimTicket,
-                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicket.FromString,
-                    response_serializer=proto_dot_support__bot__pb2.CommandResponse.SerializeToString,
+                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
             'ClaimForTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.ClaimForTicket,
-                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicket.FromString,
-                    response_serializer=proto_dot_support__bot__pb2.CommandResponse.SerializeToString,
+                    request_deserializer=proto_dot_support__bot__pb2.UserWithTicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
+            'ReopenTicket': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReopenTicket,
+                    request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -269,8 +285,8 @@ class CommandHandler(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/RemoveStaffFromTicket',
-            proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-            proto_dot_support__bot__pb2.CommandResponse.FromString,
+            proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -286,8 +302,8 @@ class CommandHandler(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/CloseTicket',
-            proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-            proto_dot_support__bot__pb2.CommandResponse.FromString,
+            proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -303,8 +319,8 @@ class CommandHandler(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/ClaimTicket',
-            proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-            proto_dot_support__bot__pb2.CommandResponse.FromString,
+            proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -320,7 +336,24 @@ class CommandHandler(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/ClaimForTicket',
-            proto_dot_support__bot__pb2.UserWithTicket.SerializeToString,
-            proto_dot_support__bot__pb2.CommandResponse.FromString,
+            proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ReopenTicket(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/ReopenTicket',
+            proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

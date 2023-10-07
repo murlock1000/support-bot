@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from nio import AsyncClient, MatrixRoom, RoomMessage
 
@@ -42,11 +42,11 @@ class EventStateHandler(object):
         self.room_type = self.determine_room_type(self.room)
 
         # Variables for holding Event State
-        self.user: User|None = None
-        self.staff: Staff|None = None
+        self.user: Optional[User] = None
+        self.staff: Optional[Staff] = None
 
-        self.ticket: Ticket|None = None
-        self.chat: Chat|None = None
+        self.ticket: Optional[Ticket] = None
+        self.chat: Optional[Chat] = None
 
         # Variables for holding Logging utils
         self.for_room = f"room {self.room.display_name}"

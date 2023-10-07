@@ -1,3 +1,28 @@
+from nio import ErrorResponse
+from enum import Enum
+
+class Errors(Enum):
+    EXCEPTION = "EXCEPTION"
+    NIO_ERROR = "NIO_ERROR"
+    ROOM_INVITE = "ROOM_INVITE"
+    UNKNOWN_TICKET = "UNKNOWN_TICKET"
+    UNKNOWN_ROOM = "UNKNOWN_ROOM"
+    INVALID_ROOM_STATE = "INVALID_ROOM_STATE"
+    ASYNC_TIMEOUT = "ASYNC_TIMEOUT"
+    
+
+class TicketNotFound(ErrorResponse):
+    def __init__(self, ticket_id):
+        super(TicketNotFound, self).__init__(f"Ticket with ID {ticket_id} was not found.", Errors.UNKNOWN_TICKET)
+        
+class RoomNotFound(ErrorResponse):
+    def __init__(self, room_id):
+        super(TicketNotFound, self).__init__(f"Room with ID {room_id} was not found.", Errors.UNKNOWN_ROOM)
+
+class RoomNotEncrypted(ErrorResponse):
+    def __init__(self, room_id):
+        super(TicketNotFound, self).__init__(f"Room with ID {room_id} is not encrypted.", Errors.ROOM_STATE_ERROR)
+
 class ConfigError(RuntimeError):
     """An error encountered during reading the config file
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from nio import (
     JoinError, MatrixRoom, Event, RoomKeyEvent, RoomMessageText, MegolmEvent, LocalProtocolError,
     RoomKeyRequestError, RoomMemberEvent, Response, RoomKeyRequest, RedactionEvent, CallInviteEvent,
-    AsyncClient, CallEvent, RoomEncryptionEvent,
+    AsyncClient, CallEvent, RoomEncryptionEvent, ErrorResponse
 )
 
 from middleman.bot_commands import Command
@@ -143,7 +143,13 @@ class Callbacks(object):
             if not support:
                 return
             
-            await send_shared_history_keys(self.client, room.room_id, [support.user_id])
+            try:
+                resp = await send_shared_history_keys(self.client, room.room_id, [support.user_id])
+                if isinstance(resp, ErrorResponse):
+                    logger.warning(f"Failed to share history keys for user {support.user_id} in room {room.room_id} : {resp.message}")
+            except Exception as e:
+                logger.error(e)
+
         elif event.membership == 'invite':
             # Ignore invites sent by us
             if event.sender == self.client.user:
