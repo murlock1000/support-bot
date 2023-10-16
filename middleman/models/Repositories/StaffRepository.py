@@ -16,6 +16,11 @@ class StaffRepository(object):
             return id[0]
         return id
     
+    def get_all_staff(self):
+        self.storage._execute("SELECT user_id FROM Staff;")
+        staff = self.storage.cursor.fetchall()
+        return [row[0] for row in staff ]
+    
     def delete_staff(self, user_id:str):
         self.storage._execute("""
             DELETE FROM Staff WHERE user_id= ?;
