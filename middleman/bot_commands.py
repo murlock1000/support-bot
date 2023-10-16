@@ -585,76 +585,11 @@ class Command(object):
             await send_text_to_room(self.client, self.room.room_id, err,)
             return
         
-        resp = await Command.__close_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
+        resp = await close_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
         if isinstance(resp, ErrorResponse):
             await send_text_to_room(self.client, self.room.room_id, f"Failed to close Ticket: {resp.message}")
-
-    async def __unassign_staff_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
-        ticket:Ticket = Ticket.get_existing(store, ticket_id)
-        if not ticket:
-            return TicketNotFound(ticket_id)
-        
-        for user_id in user_ids:
-            ticket.unassign_staff(user_id)
-            resp = await kick_from_room(
-                        client, user_id, ticket.ticket_room_id
-                    )
-            if isinstance(resp, RoomKickError):
-                logger.warning(f"Failed to kick user {user_id} from ticket ID: {ticket.id} in room {ticket.room_id}")
     
     
-    async def __unassign_support_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
-        ticket:Ticket = Ticket.get_existing(store, ticket_id)
-        if not ticket:
-            return TicketNotFound(ticket_id)
-        
-        for user_id in user_ids:
-            ticket.unassign_support(user_id)
-            resp = await kick_from_room(
-                        client, user_id, ticket.ticket_room_id
-                    )
-            if isinstance(resp, RoomKickError):
-                logger.warning(f"Failed to kick user {user_id} from ticket ID: {ticket.id} in room {ticket.room_id}")
-              
-              
-
-    async def __close_ticket(client: AsyncClient, store: Storage, ticket_id:str, management_room_id:str) -> Optional[ErrorResponse]:
-        """
-        Staff close the current ticket.
-        """
-
-        ticket:Ticket = Ticket.get_existing(store, ticket_id)
-        if not ticket:
-            return TicketNotFound(ticket_id)
-        else:
-            if ticket.status != TicketStatus.CLOSED:
-                ticket.set_status(TicketStatus.CLOSED)
-
-                current_user_ticket_id = ticket.find_user_current_ticket_id()
-                if current_user_ticket_id == ticket.id:
-                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
-
-                msg = f"Closed Ticket {ticket.id}"
-                logger.info(msg)
-                await send_text_to_room(client, ticket.ticket_room_id, msg,)
-                await send_text_to_room(client, management_room_id, msg,)
-
-                # Kick all support from the room
-                support_users = ticket.get_assigned_support()
-                for support in support_users:
-                    await kick_from_room(
-                    client, support, ticket.ticket_room_id
-                )
-                
-                # Kick staff from room after close
-                staff_users = ticket.get_assigned_staff()
-                for staff in staff_users:
-                    await kick_from_room(
-                        client, staff, ticket.ticket_room_id
-                    ) 
-            else:
-                return ErrorResponse(f"Ticket {ticket.id} is already closed", Errors.INVALID_ROOM_STATE)
-
     async def _reopen_ticket(self) -> None:
         """
         Staff reopen the current ticket, or specify and be reinvited to it.
@@ -683,11 +618,88 @@ class Command(object):
 
             ticket_id = int(ticket_id)
         
-        resp = await Command.__reopen_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
+        resp = await reopen_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
         if isinstance(resp, ErrorResponse):
             await send_text_to_room(self.client, self.room.room_id, f"Failed to reopen ticket: {resp.message}")
             
-    async def __reopen_ticket(client: AsyncClient, store: Storage, ticket_id: str, management_room_id:str) -> Optional[ErrorResponse]:
+    async def _claim(self):
+        """
+        Staff claim a ticket.
+        """
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIM)
+            return
+
+        ticket_id = self.args[0]
+
+        
+        resp = await claim(self.client, self.store, self.handler.staff.user_id, ticket_id)
+        if isinstance(resp, ErrorResponse):
+            await send_text_to_room(self.client, self.room.room_id, f"Failed to claim ticket: {resp.message}")
+                
+    async def _claimfor(self):
+        """
+        Staff claim a ticket for support.
+        """
+
+        if len(self.args) < 2:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIMFOR)
+            return
+
+        user_id = self.args[0]
+        ticket_id = self.args[1]
+
+        resp = await claimfor(self.client, self.store, user_id, ticket_id)
+        if isinstance(resp, ErrorResponse):
+            await send_text_to_room(self.client, self.room.room_id, f"Failed to claimfor ticket: {resp.message}")
+
+    
+
+async def unassign_staff_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
+    ticket:Ticket = Ticket.get_existing(store, ticket_id)
+    if not ticket:
+        return TicketNotFound(ticket_id)
+    
+    for user_id in user_ids:
+        ticket.unassign_staff(user_id)
+        resp = await kick_from_room(
+                    client, user_id, ticket.ticket_room_id
+                )
+        if isinstance(resp, RoomKickError):
+            logger.warning(f"Failed to kick user {user_id} from ticket ID: {ticket.id} in room {ticket.ticket_room_id}")
+    
+    
+async def claim(client: AsyncClient, store: Storage, staff_user_id: str, ticket_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff claim a ticket.
+        """
+        # Get ticket by id
+        ticket = Ticket.get_existing(store, int(ticket_id))
+
+        if not ticket:
+            return TicketNotFound(ticket_id)
+
+        # Claim Ticket for the staff
+        ticket.claim_ticket(staff_user_id)
+
+        logger.debug(f"Inviting user {staff_user_id} to ticket room {ticket.ticket_room_id}")
+
+        # Invite staff to Ticket room
+        response = await ticket.invite_to_ticket_room(client, staff_user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            try:
+                resp = await send_shared_history_keys(client, ticket.ticket_room_id, [staff_user_id])
+                if isinstance(resp, ErrorResponse):
+                    return resp
+                logger.debug(f"Invited staff to Ticket room successfully")
+            except Exception as e:
+                return ErrorResponse(f"Failed to share keys with user {staff_user_id} {e}", Errors.EXCEPTION)
+        else:
+            return ErrorResponse(f"Failed to invite {staff_user_id} to Ticket room {ticket.ticket_room_id}: {response.message}", Errors.ROOM_INVITE)
+
+async def reopen_ticket(client: AsyncClient, store: Storage, ticket_id: str, management_room_id:str) -> Optional[ErrorResponse]:
         """
         Staff reopen the current ticket, or specify and be reinvited to it.
         """
@@ -728,68 +740,7 @@ class Command(object):
         else:
             return ErrorResponse(f"Ticket {ticket.id} is already open", Errors.INVALID_ROOM_STATE)
 
-    async def _claim(self):
-        """
-        Staff claim a ticket.
-        """
-
-        if len(self.args) < 1:
-            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIM)
-            return
-
-        ticket_id = self.args[0]
-
-        
-        resp = await Command.__claim(self.client, self.store, self.handler.staff.user_id, ticket_id)
-        if isinstance(resp, ErrorResponse):
-            await send_text_to_room(self.client, self.room.room_id, f"Failed to claim ticket: {resp.message}")
-    
-    async def __claim(client: AsyncClient, store: Storage, staff_user_id: str, ticket_id:str) -> Optional[ErrorResponse]:
-        """
-        Staff claim a ticket.
-        """
-        # Get ticket by id
-        ticket = Ticket.get_existing(store, int(ticket_id))
-
-        if not ticket:
-            return TicketNotFound(ticket_id)
-
-        # Claim Ticket for the staff
-        ticket.claim_ticket(staff_user_id)
-
-        logger.debug(f"Inviting user {staff_user_id} to ticket room {ticket.ticket_room_id}")
-
-        # Invite staff to Ticket room
-        response = await ticket.invite_to_ticket_room(client, staff_user_id)
-
-        if isinstance(response, RoomInviteResponse):
-            try:
-                resp = await send_shared_history_keys(client, ticket.ticket_room_id, [staff_user_id])
-                if isinstance(resp, ErrorResponse):
-                    return resp
-                logger.debug(f"Invited staff to Ticket room successfully")
-            except Exception as e:
-                return ErrorResponse(f"Failed to share keys with user {staff_user_id} {e}", Errors.EXCEPTION)
-        else:
-            return ErrorResponse(f"Failed to invite {staff_user_id} to Ticket room {ticket.ticket_room_id}: {response.message}", Errors.ROOM_INVITE)
-            
-    async def _claimfor(self):
-        """
-        Staff claim a ticket for support.
-        """
-
-        if len(self.args) < 2:
-            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CLAIMFOR)
-            return
-
-        user_id = self.args[0]
-        ticket_id = self.args[1]
-
-        resp = await Command.__claimfor(self.client, self.store, user_id, ticket_id)
-        if isinstance(resp, ErrorResponse):
-            await send_text_to_room(self.client, self.room.room_id, f"Failed to claimfor ticket: {resp.message}")
-
-    async def __claimfor(client: AsyncClient, store: Storage, user_id:str, ticket_id:str) -> Optional[ErrorResponse]:
+async def claimfor(client: AsyncClient, store: Storage, user_id:str, ticket_id:str) -> Optional[ErrorResponse]:
         """
         Staff claim a ticket for support.
         """
@@ -823,3 +774,53 @@ class Command(object):
                 return ErrorResponse(e, Errors.EXCEPTION)
         else:
             return ErrorResponse(f"Failed to invite {support.user_id} to Ticket room {ticket.ticket_room_id}: {response.message}", Errors.ROOM_INVITE)
+
+async def close_ticket(client: AsyncClient, store: Storage, ticket_id:str, management_room_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff close the current ticket.
+        """
+
+        ticket:Ticket = Ticket.get_existing(store, ticket_id)
+        if not ticket:
+            return TicketNotFound(ticket_id)
+        else:
+            if ticket.status != TicketStatus.CLOSED:
+                ticket.set_status(TicketStatus.CLOSED)
+
+                current_user_ticket_id = ticket.find_user_current_ticket_id()
+                if current_user_ticket_id == ticket.id:
+                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+
+                msg = f"Closed Ticket {ticket.id}"
+                logger.info(msg)
+                await send_text_to_room(client, ticket.ticket_room_id, msg,)
+                await send_text_to_room(client, management_room_id, msg,)
+
+                # Kick all support from the room
+                support_users = ticket.get_assigned_support()
+                for support in support_users:
+                    await kick_from_room(
+                    client, support, ticket.ticket_room_id
+                )
+                
+                # Kick staff from room after close
+                staff_users = ticket.get_assigned_staff()
+                for staff in staff_users:
+                    await kick_from_room(
+                        client, staff, ticket.ticket_room_id
+                    ) 
+            else:
+                return ErrorResponse(f"Ticket {ticket.id} is already closed", Errors.INVALID_ROOM_STATE)
+
+async def unassign_support_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
+        ticket:Ticket = Ticket.get_existing(store, ticket_id)
+        if not ticket:
+            return TicketNotFound(ticket_id)
+        
+        for user_id in user_ids:
+            ticket.unassign_support(user_id)
+            resp = await kick_from_room(
+                        client, user_id, ticket.ticket_room_id
+                    )
+            if isinstance(resp, RoomKickError):
+                logger.warning(f"Failed to kick user {user_id} from ticket ID: {ticket.id} in room {ticket.room_id}")

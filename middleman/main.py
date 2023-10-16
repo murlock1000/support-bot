@@ -68,7 +68,7 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
     )
     
     # Start grpc server
-    tm = grpc_server.server.ThreadManager(client, store, main_loop)
+    tm = grpc_server.server.ThreadManager(client, store, config, main_loop)
     asyncio.run_coroutine_threadsafe(grpc_server.server.serve(main_loop, tm), grpc_loop)
 
     if config.user_token:
