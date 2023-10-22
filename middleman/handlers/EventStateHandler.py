@@ -37,6 +37,8 @@ class EventStateHandler(object):
         self.config = config
         self.room = room
         self.event = event
+        
+        self.meta = {}
 
         # Determine room event is in
         self.room_type = self.determine_room_type(self.room)
@@ -65,7 +67,7 @@ class EventStateHandler(object):
         return self.staff is not None
     def find_state_ticket(self) -> bool:
         if self.room_type == RoomType.TicketRoom:
-            self.ticket = Ticket.find_ticket_of_room(self.store, self.room)
+            self.ticket = Ticket.find_ticket_of_room_id(self.store, self.room.room_id)
 
         # Update logging format
         if self.ticket:
@@ -149,17 +151,24 @@ class EventStateHandler(object):
 
         if room.room_id == self.config.management_room_id:
             self.room_type = RoomType.ManagementRoom
-        elif room.room_id == self.config.matrix_logging_room:
+            return self.room_type
+        if room.room_id == self.config.matrix_logging_room:
             self.room_type = RoomType.LoggingRoom
-        elif room.name is None:
-            self.room_type = RoomType.UserRoom
-        elif chat_room_name_pattern.match(room.name):
-            self.room_type = RoomType.ChatRoom
-        elif ticket_name_pattern.match(room.name):
+            return self.room_type
+        
+        ticket_id = Ticket.get_ticket_id_from_room_id(self.store, self.room.room_id)
+        if ticket_id:
             self.room_type = RoomType.TicketRoom
-        else:
-            self.room_type = RoomType.UserRoom
+            self.meta['ticket_id'] = ticket_id
+            return self.room_type
 
+        chat_room_id = Chat.get_chat_room_id_from_room_id(self.store, self.room.room_id)
+        if chat_room_id:
+            self.room_type = RoomType.ChatRoom
+            self.meta['chat_room_id'] = chat_room_id
+            return self.room_type
+        
+        self.room_type = RoomType.UserRoom
         return self.room_type
 
 

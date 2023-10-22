@@ -12,6 +12,7 @@ from nio import (
     DownloadResponse,
     ErrorResponse,
     ProfileGetResponse,
+    RoomMessagesResponse,
 )
 
 import asyncio
@@ -48,6 +49,14 @@ class ThreadManager():
             return await self.wait_for(future, self.timeout)
         except asyncio.TimeoutError:
             return ErrorResponse("Timed out while fetching avatar url", Errors.ASYNC_TIMEOUT)
+
+    # ### Room Handler methods
+    # async def fetch_room_messages(self, room_id: str, start:str) -> Union[RoomMessagesResponse, ErrorResponse]:
+    #     future = asyncio.run_coroutine_threadsafe(self.client.room_messages(room_id, start), self.main_loop)
+    #     try:
+    #         return await self.wait_for(future, self.timeout)
+    #     except asyncio.TimeoutError:
+    #         return ErrorResponse("Timed out while fetching avatar url", Errors.ASYNC_TIMEOUT)
 
     ### Command Handler methods
     async def remove_staff_from_ticket(self, user_id: str, ticket_id: str) -> Optional[ErrorResponse]:

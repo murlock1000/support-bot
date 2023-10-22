@@ -11,9 +11,10 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/support_bot.proto\x12\x0bsupport_bot\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t\"#\n\x10\x41vatarURLRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"$\n\x0e\x41vatarURLReply\x12\x12\n\navatar_url\x18\x01 \x01(\t\";\n\x15UserWithTicketRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x11\n\tticket_id\x18\x02 \x01(\t\"\"\n\rTicketRequest\x12\x11\n\tticket_id\x18\x01 \x01(\t\"\x0f\n\rEmptyResponse2\x92\x01\n\x07Greeter\x12@\n\x08SayHello\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x12\x45\n\rSayHelloAgain\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x32]\n\x0bMetaHandler\x12N\n\x0e\x46\x65tchAvatarURL\x12\x1d.support_bot.AvatarURLRequest\x1a\x1b.support_bot.AvatarURLReply\"\x00\x32\xa3\x03\n\x0e\x43ommandHandler\x12Y\n\x15RemoveStaffFromTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12G\n\x0b\x43loseTicket\x12\x1a.support_bot.TicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12O\n\x0b\x43laimTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12R\n\x0e\x43laimForTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12H\n\x0cReopenTicket\x12\x1a.support_bot.TicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/support_bot.proto\x12\x0bsupport_bot\x1a\x1cgoogle/protobuf/struct.proto\"\x1c\n\x0cHelloRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x1d\n\nHelloReply\x12\x0f\n\x07message\x18\x01 \x01(\t\"#\n\x10\x41vatarURLRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"$\n\x0e\x41vatarURLReply\x12\x12\n\navatar_url\x18\x01 \x01(\t\";\n\x15UserWithTicketRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x11\n\tticket_id\x18\x02 \x01(\t\"\"\n\rTicketRequest\x12\x11\n\tticket_id\x18\x01 \x01(\t\"\x0f\n\rEmptyResponse\"0\n\x0eMessageRequest\x12\x0f\n\x07room_id\x18\x01 \x01(\t\x12\r\n\x05start\x18\x02 \x01(\t\"a\n\x0fMessageResponse\x12\x0f\n\x07room_id\x18\x01 \x01(\t\x12\r\n\x05start\x18\x02 \x01(\t\x12\x0b\n\x03\x65nd\x18\x03 \x01(\t\x12!\n\x05\x63hunk\x18\x04 \x03(\x0b\x32\x12.support_bot.Event\"m\n\x05\x45vent\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x0e\n\x06sender\x18\x02 \x01(\t\x12\x18\n\x10server_timestamp\x18\x03 \x01(\x05\x12(\n\x07\x63ontent\x18\x04 \x01(\x0b\x32\x17.google.protobuf.Struct2\x92\x01\n\x07Greeter\x12@\n\x08SayHello\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x12\x45\n\rSayHelloAgain\x12\x19.support_bot.HelloRequest\x1a\x17.support_bot.HelloReply\"\x00\x32]\n\x0bMetaHandler\x12N\n\x0e\x46\x65tchAvatarURL\x12\x1d.support_bot.AvatarURLRequest\x1a\x1b.support_bot.AvatarURLReply\"\x00\x32\xa3\x03\n\x0e\x43ommandHandler\x12Y\n\x15RemoveStaffFromTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12G\n\x0b\x43loseTicket\x12\x1a.support_bot.TicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12O\n\x0b\x43laimTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12R\n\x0e\x43laimForTicket\x12\".support_bot.UserWithTicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x12H\n\x0cReopenTicket\x12\x1a.support_bot.TicketRequest\x1a\x1a.support_bot.EmptyResponse\"\x00\x32\x62\n\x0eMessageHandler\x12P\n\x11\x46\x65tchRoomMessages\x12\x1b.support_bot.MessageRequest\x1a\x1c.support_bot.MessageResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -21,24 +22,32 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'proto.support_bot_pb2', _gl
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _globals['_HELLOREQUEST']._serialized_start=40
-  _globals['_HELLOREQUEST']._serialized_end=68
-  _globals['_HELLOREPLY']._serialized_start=70
-  _globals['_HELLOREPLY']._serialized_end=99
-  _globals['_AVATARURLREQUEST']._serialized_start=101
-  _globals['_AVATARURLREQUEST']._serialized_end=136
-  _globals['_AVATARURLREPLY']._serialized_start=138
-  _globals['_AVATARURLREPLY']._serialized_end=174
-  _globals['_USERWITHTICKETREQUEST']._serialized_start=176
-  _globals['_USERWITHTICKETREQUEST']._serialized_end=235
-  _globals['_TICKETREQUEST']._serialized_start=237
-  _globals['_TICKETREQUEST']._serialized_end=271
-  _globals['_EMPTYRESPONSE']._serialized_start=273
-  _globals['_EMPTYRESPONSE']._serialized_end=288
-  _globals['_GREETER']._serialized_start=291
-  _globals['_GREETER']._serialized_end=437
-  _globals['_METAHANDLER']._serialized_start=439
-  _globals['_METAHANDLER']._serialized_end=532
-  _globals['_COMMANDHANDLER']._serialized_start=535
-  _globals['_COMMANDHANDLER']._serialized_end=954
+  _globals['_HELLOREQUEST']._serialized_start=70
+  _globals['_HELLOREQUEST']._serialized_end=98
+  _globals['_HELLOREPLY']._serialized_start=100
+  _globals['_HELLOREPLY']._serialized_end=129
+  _globals['_AVATARURLREQUEST']._serialized_start=131
+  _globals['_AVATARURLREQUEST']._serialized_end=166
+  _globals['_AVATARURLREPLY']._serialized_start=168
+  _globals['_AVATARURLREPLY']._serialized_end=204
+  _globals['_USERWITHTICKETREQUEST']._serialized_start=206
+  _globals['_USERWITHTICKETREQUEST']._serialized_end=265
+  _globals['_TICKETREQUEST']._serialized_start=267
+  _globals['_TICKETREQUEST']._serialized_end=301
+  _globals['_EMPTYRESPONSE']._serialized_start=303
+  _globals['_EMPTYRESPONSE']._serialized_end=318
+  _globals['_MESSAGEREQUEST']._serialized_start=320
+  _globals['_MESSAGEREQUEST']._serialized_end=368
+  _globals['_MESSAGERESPONSE']._serialized_start=370
+  _globals['_MESSAGERESPONSE']._serialized_end=467
+  _globals['_EVENT']._serialized_start=469
+  _globals['_EVENT']._serialized_end=578
+  _globals['_GREETER']._serialized_start=581
+  _globals['_GREETER']._serialized_end=727
+  _globals['_METAHANDLER']._serialized_start=729
+  _globals['_METAHANDLER']._serialized_end=822
+  _globals['_COMMANDHANDLER']._serialized_start=825
+  _globals['_COMMANDHANDLER']._serialized_end=1244
+  _globals['_MESSAGEHANDLER']._serialized_start=1246
+  _globals['_MESSAGEHANDLER']._serialized_end=1344
 # @@protoc_insertion_point(module_scope)

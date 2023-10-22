@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package support_bot;
+import "google/protobuf/struct.proto";
 
 // The greeting service definition.
 service Greeter {
@@ -52,5 +53,28 @@ message TicketRequest {
 
 message EmptyResponse {
   
+}
+
+service MessageHandler {
+  rpc FetchRoomMessages(MessageRequest) returns (MessageResponse) {}
+}
+
+message MessageRequest {
+  string room_id = 1;
+  string start = 2;
+}
+
+message MessageResponse {
+  string room_id = 1;
+  string start = 2;
+  string end = 3;
+  repeated Event chunk = 4;
+}
+
+message Event {
+  string event_id = 1;
+  string sender = 2;
+  int32 server_timestamp = 3;
+  google.protobuf.Struct content = 4;
 }
 

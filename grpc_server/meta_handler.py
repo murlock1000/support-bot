@@ -7,6 +7,7 @@ import proto.support_bot_pb2_grpc as support_bot_pb2_grpc
 from nio import (
     ProfileGetResponse,
     ErrorResponse,
+    RoomMessagesResponse,
 )
 
 class MetaHandler(support_bot_pb2_grpc.MetaHandler):
@@ -19,7 +20,7 @@ class MetaHandler(support_bot_pb2_grpc.MetaHandler):
         self,
         request: support_bot_pb2.AvatarURLRequest,
         context: grpc.aio.ServicerContext,
-    ) -> support_bot_pb2.HelloReply:
+    ) -> support_bot_pb2.AvatarURLReply:
         resp = await self.tm.fetch_avatar_url(request.user_id)
         
         if isinstance(resp, ProfileGetResponse):
@@ -28,6 +29,29 @@ class MetaHandler(support_bot_pb2_grpc.MetaHandler):
             context.set_code(500)
             context.set_details(resp.message)
             return support_bot_pb2.AvatarURLReply()
+
+# class RoomHandler(support_bot_pb2_grpc.RoomHandler):
+#     def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:
+#         self.main_loop = loop
+#         self.tm = tm
+#         super().__init__()
+        
+#     async def fetch_room_messages(
+#         self,
+#         request: support_bot_pb2.MessageRequest,
+#         context: grpc.aio.ServicerContext,
+#     ) -> support_bot_pb2.MessageResponse:
+#         resp = await self.tm.fetch_room_messages(request.room_id, request.start)
+        
+#         if isinstance(resp, RoomMessagesResponse):
+            
+            
+            
+#             return support_bot_pb2.MessageResponse(avatar_url=resp.avatar_url)
+#         elif isinstance(resp, ErrorResponse):
+#             context.set_code(500)
+#             context.set_details(resp.message)
+#             return support_bot_pb2.MessageResponse()
 
 class CommandHandler(support_bot_pb2_grpc.CommandHandler):
     def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:

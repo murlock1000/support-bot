@@ -69,6 +69,10 @@ class Chat(object):
         return chat
 
     @staticmethod
+    def get_chat_room_id_from_room_id(store:Storage, room_id:str):
+        return store.repositories.chatRep.get_chat(room_id)
+    
+    @staticmethod
     def find_chat_of_room(store, room:MatrixRoom):
 
         chat_room_id = room.room_id

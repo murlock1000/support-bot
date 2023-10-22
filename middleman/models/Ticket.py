@@ -67,47 +67,24 @@ class Ticket(object):
         else:
             return None
 
-    @staticmethod
-    def find_room_ticket_id(storage:Storage, room:MatrixRoom):
-        match = None
-        if room.name:
-            match = ticket_name_pattern.match(room.name)
+    # @staticmethod
+    # def find_room_ticket_id(storage:Storage, room:MatrixRoom):
+    #     match = None
+    #     if room.name:
+    #         match = ticket_name_pattern.match(room.name)
 
-        ticket_id = None
-        if match:
-            ticket_id = match[1]  # Get the id from regex group
+    #     ticket_id = None
+    #     if match:
+    #         ticket_id = match[1]  # Get the id from regex group
 
-        if ticket_id and ticket_id.isnumeric():
-            return int(ticket_id)
+    #     if ticket_id and ticket_id.isnumeric():
+    #         return int(ticket_id)
         
-        return storage.repositories.ticketRep.get_ticket_id(room.room_id)
+    #     return storage.repositories.ticketRep.get_ticket_id(room.room_id)
     
     @staticmethod
     def get_ticket_id_from_room_id(storage:Storage, room_id:str):        
         return storage.repositories.ticketRep.get_ticket_id(room_id)
-
-    @staticmethod
-    def find_ticket_of_room(store:Storage, room:MatrixRoom):
-        is_open_ticket_room = False
-
-        ticket_id = Ticket.find_room_ticket_id(store, room)
-        if not ticket_id:
-            return None
-
-        should_add_to_cache = False
-        ticket = Ticket.ticket_cache.get(ticket_id, None)
-        # Cache hit
-        if ticket:
-            return ticket
-
-        # Cache miss
-        ticket = Ticket.get_existing(store, ticket_id)
-
-        if ticket:
-            Ticket.ticket_cache[ticket.id] = ticket
-            return ticket
-        else:
-            return None
         
     @staticmethod
     def find_ticket_of_room_id(store:Storage, room_id:str):
