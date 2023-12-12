@@ -362,7 +362,7 @@ class Command(object):
                 await send_text_to_room(self.client, self.room.room_id, msg,)
         
         # Delete the events
-        IncomingEvent.delete_user_incoming_events(self.store, event.user_id)
+        IncomingEvent.delete_user_incoming_events(self.store, ticket.user_id)
 
     async def _raise_ticket(self):
         """
