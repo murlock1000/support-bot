@@ -210,7 +210,7 @@ class TextMessage(Message):
             if type(sync_resp) == SyncResponse:
                 await self.client._handle_joined_rooms(sync_resp)
             else:
-                logger.warning(f"Sync response error received for room {room_id} with error code {sync_resp.status_code}, {sync_resp}")
+                logger.warning(f"Message Sync response error received for room {room_id} with error code {sync_resp.status_code}, {sync_resp}, {sync_resp.__dict__}")
 
         if not self.client.rooms.get(room_id, None):
             logger.debug(f"Message put to queue for room {room_id}")
