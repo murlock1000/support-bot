@@ -106,6 +106,11 @@ class Config(object):
 
         self.command_prefix = self._get_cfg(["command_prefix"], default="!c") + " "
 
+        # GRPC Server credentials
+        self.server_certificate = self._get_cfg(["grpc_server", "server_certificate"], required=True)
+        self.server_certificate_key = self._get_cfg(["grpc_server", "server_certificate_key"], required=True)
+        self.root_certificate = self._get_cfg(["grpc_server", "root_certificate"], required=True)
+
         # Matrix logging
         matrix_logging_enabled = self._get_cfg(["logging", "matrix_logging", "enabled"], default=False)
         self.matrix_logging_room = None

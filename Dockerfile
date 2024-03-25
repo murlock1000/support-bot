@@ -84,5 +84,6 @@ WORKDIR /app
 # Copy app files
 COPY *.py *.md /app/
 COPY support_bot/ /app/support_bot/
+COPY grpc_server/ /app/grpc_server/
 
 CMD python main.py /config/config.yaml

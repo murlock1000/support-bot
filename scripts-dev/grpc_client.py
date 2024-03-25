@@ -15,7 +15,7 @@
 
 import logging
 
-import grpc_server._credentials as _credentials
+from grpc_server._credentials import load_credential_from_file
 import grpc
 
 support_bot_pb2, support_bot_pb2_grpc = grpc.protos_and_services(
@@ -27,7 +27,7 @@ _LOGGER.setLevel(logging.INFO)
 
 _PORT = 50051
 _SERVER_ADDR_TEMPLATE = "localhost:%d"
-
+ROOT_CERTIFICATE = "../credentials/root.crt"
 
 def send_rpc(stub):
     request = support_bot_pb2.HelloRequest(name="you")
@@ -43,7 +43,7 @@ def send_rpc(stub):
 
 def main():
     channel_credential = grpc.ssl_channel_credentials(
-        _credentials.ROOT_CERTIFICATE
+        load_credential_from_file(ROOT_CERTIFICATE)
     )
     with grpc.secure_channel(
         _SERVER_ADDR_TEMPLATE % _PORT, channel_credential

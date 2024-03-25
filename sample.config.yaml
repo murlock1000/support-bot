@@ -79,6 +79,11 @@ storage:
   # containing encryption keys, sync tokens, etc.
   store_path: "./store"
 
+grpc_server:
+  server_certificate: ./credentials/localhost.crt
+  server_certificate_key: ./credentials/localhost.key
+  root_certificate: ./credentials/root.crt
+  
 # Logging setup
 logging:
   # Logging level

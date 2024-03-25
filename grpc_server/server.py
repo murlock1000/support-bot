@@ -1,5 +1,5 @@
 import asyncio
-import grpc_server._credentials as _credentials
+from grpc_server._credentials import load_credential_from_file
 import logging
 import grpc
 from grpc_server.meta_handler import CommandHandler, MetaHandler
@@ -35,8 +35,8 @@ async def serve(main_loop: asyncio.AbstractEventLoop, tm: ThreadManager) -> None
     server_credentials = grpc.ssl_server_credentials(
         (
             (
-                _credentials.SERVER_CERTIFICATE_KEY,
-                _credentials.SERVER_CERTIFICATE,
+                load_credential_from_file(tm.config.server_certificate_key),
+                load_credential_from_file(tm.config.server_certificate),
             ),
         )
     )
