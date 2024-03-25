@@ -36,7 +36,7 @@ Best used with Docker, find [images on Docker Hub](https://hub.docker.com/r/murl
 
 An example configuration file is provided as `sample.config.yaml`.
 
-Make a copy of that, edit as required and mount it to `/config/config.yaml` on the Docker container.
+Make a copy of that, edit as required and mount it to `/config/config.yaml` on the Docker container with `cp sample.config.yaml config.docker.yaml`
 
 You'll also need to give the container a folder for storing state. Create a folder, ensure
 it's writable by the user the container process is running as and mount it to `/data`.
@@ -89,7 +89,7 @@ about `pip-tools` at https://github.com/jazzband/pip-tools
 * Push the tag
 * Make a GitHub release, copy the changelog for the release there
 * Build a docker image
-  * `docker build -f docker/Dockerfile . -t murlock1000/support_bot:v<version>`
+  * `docker build -f docker/Dockerfile . -t murlock1000/support_bot:v<version> --no-cache`
   * `docker tag murlock1000/support_bot:v<version> murlock1000/support_bot:latest`
 * Push docker images
 * Update topic in `#middleman:elokapina.fi`

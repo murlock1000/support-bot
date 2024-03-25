@@ -24,6 +24,7 @@ dist/
 
 # Config file
 config.yaml
+config.docker.yaml
 
 # TLS configuration
 localhost.crt

@@ -48,7 +48,7 @@ RUN apk add --no-cache \
 # Also build the libolm python bindings and place them at /python-libs
 # We will later copy contents from both of these folders to the runtime
 # container
-COPY docker/build_and_install_libolm.sh /scripts/
+COPY docker/build_and_install_libolm.sh /scripts/build_and_install_libolm.sh
 RUN /scripts/build_and_install_libolm.sh ${LIBOLM_VERSION} /python-libs
 
 RUN mkdir -p /app
@@ -57,6 +57,7 @@ COPY requirements.txt /app
 
 WORKDIR /app
 
+RUN pip install --upgrade pip
 RUN pip install --prefix="/python-libs" --no-warn-script-location -r requirements.txt
 
 ##
@@ -85,5 +86,6 @@ WORKDIR /app
 COPY *.py *.md /app/
 COPY support_bot/ /app/support_bot/
 COPY grpc_server/ /app/grpc_server/
+COPY proto/ /app/proto/
 
 CMD python main.py /config/config.yaml
