@@ -1,10 +1,10 @@
 from concurrent.futures import Future
 from datetime import datetime, timedelta
-from middleman import chat_functions
-from middleman.bot_commands import Command, claim, claimfor, close_ticket, reopen_ticket, unassign_staff_from_ticket
-from middleman.config import Config
-from middleman.errors import Errors
-from middleman.storage import Storage
+from support_bot import chat_functions
+from support_bot.bot_commands import Command, claim, claimfor, close_ticket, reopen_ticket, unassign_staff_from_ticket
+from support_bot.config import Config
+from support_bot.errors import Errors
+from support_bot.storage import Storage
 import logging
 
 from nio import (

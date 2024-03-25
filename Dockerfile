@@ -83,6 +83,6 @@ WORKDIR /app
 
 # Copy app files
 COPY *.py *.md /app/
-COPY middleman/ /app/middleman/
+COPY support_bot/ /app/support_bot/
 
 CMD python main.py /config/config.yaml

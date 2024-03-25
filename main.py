@@ -6,7 +6,7 @@ from threading import Thread
 # noinspection PyPackageRequirements
 import aiolog
 
-from middleman.config import Config
+from support_bot.config import Config
 import grpc_server.server
 
 def f(loop:asyncio.AbstractEventLoop):
@@ -14,7 +14,7 @@ def f(loop:asyncio.AbstractEventLoop):
     loop.run_forever()
     
 try:
-    from middleman import main
+    from support_bot import main
 
     # Read config file
 
@@ -43,4 +43,4 @@ try:
         asyncio.run_coroutine_threadsafe(grpc_server.server.close(grpc_loop), grpc_loop)
         t.join(timeout=3)
 except ImportError as e:
-    print("Unable to import middleman.main:", e)
+    print("Unable to import support_bot.main:", e)
