@@ -36,7 +36,7 @@ Best used with Docker, find [images on Docker Hub](https://hub.docker.com/r/murl
 
 An example configuration file is provided as `sample.config.yaml`.
 
-Make a copy of that, edit as required and mount it to `/config/config.yaml` on the Docker container with `cp sample.config.yaml config.docker.yaml`
+Make a copy of that, edit as required and mount it to `/config/config.yaml` on the Docker container with `cp sample.config.yaml config.docker.yaml`. Create your grpc ssl certificates in `credentials/` and move this folder to the data folder.
 
 You'll also need to give the container a folder for storing state. Create a folder, ensure
 it's writable by the user the container process is running as and mount it to `/data`.
@@ -48,7 +48,7 @@ cp sample.config.yaml config.yaml
 # Edit config.yaml, see the file for details
 mkdir data
 docker run -v ${PWD}/config.docker.yaml:/config/config.yaml:ro \
-    -v ${PWD}/data:/data --name support_bot murlock1000/support_bot
+    -v ${PWD}/data:/data -p 50051:50051 --name support_bot murlock1000/support_bot
 ```
 
 ## Usage
