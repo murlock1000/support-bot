@@ -1,6 +1,15 @@
 # Changelog
+## v1.1 - 2024-03-25
 
-## v1.0.0 - 2024-03-25
+### Added
+
+* Docker support for Support Bot
+
+### Fixed
+
+* Increment PyYaml version to 6.0.1
+
+## v1.0 - 2024-03-25
 
 Initial version with the following features
 
