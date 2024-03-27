@@ -23,14 +23,14 @@
 # then transfer those dependencies to the container we're going to ship,
 # before throwing this one away
 ARG PYTHON_VERSION=3.8
-FROM docker.io/python:${PYTHON_VERSION}-alpine3.11 as builder
+FROM docker.io/python:${PYTHON_VERSION}-alpine as builder
 
 ##
 ## Build libolm for matrix-nio e2e support
 ##
 
 # Install libolm build dependencies
-ARG LIBOLM_VERSION=3.2.1
+ARG LIBOLM_VERSION=3.2.16
 RUN apk add --no-cache \
     make \
     cmake \
@@ -39,26 +39,45 @@ RUN apk add --no-cache \
     git \
     libffi-dev \
     yaml-dev \
-    python3-dev \
-    postgresql-dev \
-    musl-dev
+    python3-dev
 
 # Build libolm
 #
 # Also build the libolm python bindings and place them at /python-libs
 # We will later copy contents from both of these folders to the runtime
 # container
-COPY docker/build_and_install_libolm.sh /scripts/build_and_install_libolm.sh
+COPY docker/build_and_install_libolm.sh /scripts/
 RUN /scripts/build_and_install_libolm.sh ${LIBOLM_VERSION} /python-libs
 
-RUN mkdir -p /app
+# Install native runtime dependencies
+RUN apk add --no-cache \
+    postgresql-dev \
+    musl-dev
 
-COPY requirements.txt /app
+# Install python runtime modules. We do this before copying the source code
+# such that these dependencies can be cached
+# This speeds up subsequent image builds when the source code is changed
+RUN mkdir -p /app/support_bot
+COPY support_bot/__init__.py /app/support_bot/
+COPY README.md main.py /app/
+
+# Build the dependencies
+RUN pip install --upgrade pip
+# Pin poetry version so updates don't break the build
+RUN pip install poetry==1.8.2
+
+# Disable poetry venv creation in builder.
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=0
 
 WORKDIR /app
+COPY pyproject.toml poetry.lock /app/
 
-RUN pip install --upgrade pip
-RUN pip install --prefix="/python-libs" --no-warn-script-location -r requirements.txt
+# Export poetry.lock to requirements file omitting hashes for faster dependency resolution
+# And building libraries in external folder /python-libs
+RUN poetry export --without-hashes --without dev --format=requirements.txt > requirements.txt
+# Install production dependencies
+RUN pip install --prefix="/python-libs" --ignore-installed --no-warn-script-location -r requirements.txt
 
 ##
 ## Creating the runtime container
@@ -66,7 +85,7 @@ RUN pip install --prefix="/python-libs" --no-warn-script-location -r requirement
 
 # Create the container we'll actually ship. We need to copy libolm and any
 # python dependencies that we built above to this container
-FROM docker.io/python:${PYTHON_VERSION}-alpine3.11
+FROM docker.io/python:${PYTHON_VERSION}-alpine
 
 # Copy python dependencies from the "builder" container
 COPY --from=builder /python-libs /usr/local
@@ -77,15 +96,20 @@ COPY --from=builder /usr/local/lib/libolm* /usr/local/lib/
 # Install any native runtime dependencies
 RUN apk add --no-cache \
     libstdc++ \
-    libpq \
-    postgresql-dev
+    libpq
 
-WORKDIR /app
-
-# Copy app files
+# Now copy the source code
 COPY *.py *.md /app/
 COPY support_bot/ /app/support_bot/
 COPY grpc_server/ /app/grpc_server/
 COPY proto/ /app/proto/
 
-CMD python main.py /config/config.yaml
+# Specify a volume that holds the config file, SQLite3 database,
+# and the matrix-nio store
+VOLUME ["/data"]
+
+# Expose grpc endpoint
+#EXPOSE 50051/tcp
+
+# Start the bot
+ENTRYPOINT ["python", "/app/main.py", "/data/config.yaml"]

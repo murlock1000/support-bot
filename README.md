@@ -31,25 +31,9 @@ Ticketing system for Matrix Synapse Element implemented through a matrix bot.
   - `!c setupcommunicationsroom <user id>` - Updates the DM between user and bot.
   - `!c chat <user id>` - Create or join an existing chat for a user with a specified name or for the replied to message sender.
 
-## Running
-Best used with Docker, find [images on Docker Hub](https://hub.docker.com/r/murlock1000/support_bot).
+## Getting started
 
-An example configuration file is provided as `sample.config.yaml`.
-
-Make a copy of that, edit as required and mount it to `/config/config.yaml` on the Docker container with `cp sample.config.yaml config.docker.yaml`. Create your grpc ssl certificates in `credentials/` and move this folder to the data folder.
-
-You'll also need to give the container a folder for storing state. Create a folder, ensure
-it's writable by the user the container process is running as and mount it to `/data`.
-
-Example:
-
-```bash
-cp sample.config.yaml config.yaml
-# Edit config.yaml, see the file for details
-mkdir data
-docker run -v ${PWD}/config.docker.yaml:/config/config.yaml:ro \
-    -v ${PWD}/data:/data -p 50051:50051 --name support_bot murlock1000/support_bot
-```
+See [SETUP.md](SETUP.md) for how to setup and run the project.
 
 ## Usage
 
@@ -60,40 +44,6 @@ Normal discussion can happen in the management room. To create a ticket for a us
 
 * Reply to the user message with `!raise <Ticket Name>` - a ticket room for that user will be created and staff invited to it, where normal discussion can continue.
 * Create a ticket room with `!c raise @user:server <Ticket Name>` - will create a ticket for the specified user.
-
-## Development
-
-## GRPC protobuf generation
-Generate protobuf files in proto/ from root directory:
-`python -m grpc_tools.protoc -I grpc_server --python_out=. --pyi_out=. --grpc_python_out=. grpc_server/proto/support_bot.proto`
-
-If you need help or want to otherwise chat, jump to `#middleman:elokapina.fi`!
-
-### Dependencies
-
-* Create a Python 3.8+ virtualenv
-* Do `pip install -U pip setuptools pip-tools`
-* Do `pip-sync`
-
-To update dependencies, do NOT edit `requirements.txt` directly. Any changes go into
-`requirements.in` and then you run `pip-compile`. If you want to upgrade existing
-non-pinned (in `requirements.in`) dependencies, run `pip-compile --upgrade`, keeping
-the ones that you want to update in `requirements.txt` when commiting. See more info
-about `pip-tools` at https://github.com/jazzband/pip-tools
-
-### Releasing
-
-* Update `CHANGELOG.md`
-* Commit changelog
-* Make a tag
-* Push the tag
-* Make a GitHub release, copy the changelog for the release there
-* Build a docker image
-  * `docker build -f docker/Dockerfile . -t murlock1000/support_bot:v<version> --no-cache`
-  * `docker tag murlock1000/support_bot:v<version> murlock1000/support_bot:latest`
-* Push docker images
-* Update topic in `#middleman:elokapina.fi`
-* Consider announcing on `#thisweekinmatrix:matrix.org` \o/
 
 ## License
 

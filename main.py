@@ -3,9 +3,6 @@ import asyncio
 import sys
 from threading import Thread
 
-# noinspection PyPackageRequirements
-import aiolog
-
 from support_bot.config import Config
 import grpc_server.server
 
@@ -25,17 +22,17 @@ try:
         config_path = "config.yaml"
     config = Config(config_path)
 
-    aiolog.start()
-
     # Setup two threads for support-bot and grpc server
     main_loop = asyncio.get_event_loop()
     grpc_loop = asyncio.new_event_loop()
     
+    print("Starting grpc loop")
     t = Thread(target=f, args=(grpc_loop,))
     t.start()
     
     # Run the main function of the bot
     try:
+        print("Starting main loop")
         main_loop.run_until_complete(main.main(config, main_loop, grpc_loop)).run_until_complete(aiolog.stop())
     except Exception as e:
         print("Main loop exited: " + str(e))

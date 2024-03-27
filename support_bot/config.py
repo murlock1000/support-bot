@@ -5,8 +5,6 @@ import sys
 from typing import Any, List
 
 import yaml
-# noinspection PyPackageRequirements
-from aiolog import matrix
 
 from support_bot.errors import ConfigError
 

@@ -1,5 +1,10 @@
 # Changelog
-## v1.1 - 2024-03-25
+## v1.1.1 - 2024-03-27
+
+* Restructure project using pyproject.toml
+* Add dev container support
+
+## v1.1.0 - 2024-03-25
 
 ### Added
 
@@ -9,7 +14,7 @@
 
 * Increment PyYaml version to 6.0.1
 
-## v1.0 - 2024-03-25
+## v1.0.0 - 2024-03-25
 
 Initial version with the following features
 

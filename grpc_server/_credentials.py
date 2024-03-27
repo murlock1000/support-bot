@@ -17,6 +17,11 @@ import os
 
 
 def load_credential_from_file(filepath):
-    real_path = os.path.join(filepath)
-    with open(real_path, "rb") as f:
+    # Replace relative path with absolute path
+    if filepath.startswith('.'):
+        real_path = os.path.join(filepath)
+    else:
+        real_path = filepath
+        
+    with open(filepath, "rb") as f:
         return f.read()
