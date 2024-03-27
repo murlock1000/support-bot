@@ -108,8 +108,5 @@ COPY proto/ /app/proto/
 # and the matrix-nio store
 VOLUME ["/data"]
 
-# Expose grpc endpoint
-#EXPOSE 50051/tcp
-
 # Start the bot
 ENTRYPOINT ["python", "/app/main.py", "/data/config.yaml"]

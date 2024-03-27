@@ -123,19 +123,6 @@ aiohttp = ">=2.3.2"
 python-socks = {version = ">=2.4.3,<3.0.0", extras = ["asyncio"]}
 
 [[package]]
-name = "aiolog"
-version = "0.1.1"
-description = "Asynchronous handlers for standard python logging library"
-optional = false
-python-versions = "*"
-files = [
-    {file = "aiolog-0.1.1-py3-none-any.whl", hash = "sha256:4d54edbe9668b1fd905e136973448cb1924596cab21450d9461adaed16c0f6a8"},
-]
-
-[package.dependencies]
-async-timeout = ">=1.1.0"
-
-[[package]]
 name = "aiosignal"
 version = "1.3.1"
 description = "aiosignal: a list of registered asynchronous callbacks"
@@ -1585,4 +1572,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "8084107c81b878070d95c027041c7a1dee47b777a2e23ef544afcb1ccdfbad89"
+content-hash = "136f772c1ef7608e745e5463520df422b74abe89ce73068f37057fc50eb0f270"
