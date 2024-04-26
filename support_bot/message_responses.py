@@ -3,13 +3,14 @@ import re
 from typing import Union
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, SyncResponse, Api
+from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage
 from nio.rooms import MatrixRoom
 
 from support_bot.event_responses import Message
 from support_bot.bot_commands import Command
 from support_bot.chat_functions import send_reaction, send_text_to_room
 from support_bot.config import Config
+from support_bot.handlers.EventStateHandler import LogLevel
 from support_bot.storage import Storage
 from support_bot.utils import USER_ID_REGEX, get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
 
@@ -188,38 +189,8 @@ class TextMessage(Message):
                    f"{self.message_content}".replace("\n", "  \n")
         return text
         
-    async def send_message_to_room(self, text:str, room_id:str):
-        
-        if not self.client.rooms.get(room_id, None):            
-            method, path = Api.sync(
-                self.client.access_token,
-                timeout=60000,
-                filter={"room":{"rooms":[room_id]}},
-                full_state=False,
-            )
-
-            sync_resp = await self.client._send(
-                SyncResponse,
-                method,
-                path,
-                # 0 if full_state: server doesn't respect timeout if full_state
-                # + 15: give server a chance to naturally return before we timeout
-                timeout=60000 / 1000 + 15,
-            )
-            
-            if type(sync_resp) == SyncResponse:
-                await self.client._handle_joined_rooms(sync_resp)
-            else:
-                logger.warning(f"Message Sync response error received for room {room_id} with error code {sync_resp.status_code}, {sync_resp}, {sync_resp.__dict__}")
-
-        if not self.client.rooms.get(room_id, None):
-            logger.debug(f"Message put to queue for room {room_id}")
-            task = (self.client.callbacks._message, room_id, self.event.room_id, self.event)
-            if task[1] not in self.client.callbacks.rooms_pending:
-                self.client.callbacks.rooms_pending[task[1]] = []
-
-            self.client.callbacks.rooms_pending[task[1]].append(task)
-            return
+    async def _forward_message_to_room(self, room_id:str):
+        text = self.anonymise_text(self.anonymized)
             
         reply_to_event_id, text = await self.transform_reply(text, room_id)
         replaces_event_id, text = await self.transform_replaces(text, room_id)
@@ -231,7 +202,6 @@ class TextMessage(Message):
                                            replaces_event_id=replaces_event_id,
                                         )
         if type(response) == RoomSendResponse and response.event_id:
-            
             try:
                 await self.put_related_clone_event(room_id, response.event_id)
                 self.store.store_message(
@@ -239,12 +209,12 @@ class TextMessage(Message):
                     response.event_id,
                     self.room.room_id,
                 )
-            except:
+            except Exception as e:
                 # When cloning messages after creating a new ticket room - messages will be sent again with identical event ids.
-                pass
+                logger.error(f"Error storing cloned event message in room {self.room.room_id} with event id {self.event.event_id} - {e}")
             logger.info("Message %s relayed to room %s", self.event.event_id, self.room.room_id)
         else:
-            logger.error("Failed to relay message %s to room %s", self.event.event_id, self.room.room_id)
+            await self.handler.message_logging_room(f"Failed to relay event with id {self.event.event_id} to room {self.room.room_id} for user {self.handler.user.user_id}, dropping message: {self.construct_received_message(self.room.room_id)}", level=LogLevel.ERROR)
 
 
     def relay_based_on_mention_room(self) -> bool:

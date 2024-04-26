@@ -111,7 +111,7 @@ class Config(object):
 
         # Matrix logging
         matrix_logging_enabled = self._get_cfg(["logging", "matrix_logging", "enabled"], default=False)
-        self.matrix_logging_room = None
+        self.matrix_logging_room = self._get_cfg(["logging", "matrix_logging", "room"], required=True)
         if matrix_logging_enabled:
             if not self.user_token:
                 logger.warning("Not setting up Matrix logging - requires user access token to be set")

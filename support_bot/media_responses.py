@@ -138,46 +138,13 @@ class Media(Message):
                    f"sent {media_name[self.media_type]} {self.body}:"
         return text
 
-    async def send_message_to_room(self, text, room_id):
-        if not self.client.rooms.get(room_id, None):            
-            method, path = Api.sync(
-                self.client.access_token,
-                timeout=60000,
-                filter={"room":{"rooms":[room_id]}},
-                full_state=False,
-            )
-
-            sync_resp = await self.client._send(
-                SyncResponse,
-                method,
-                path,
-                # 0 if full_state: server doesn't respect timeout if full_state
-                # + 15: give server a chance to naturally return before we timeout
-                timeout=60000 / 1000 + 15,
-            )
-        
-            if type(sync_resp) == SyncResponse:
-                await self.client._handle_joined_rooms(sync_resp)
-            else:
-                logger.warning(f"Media Sync response error received for room {room_id} with error code {sync_resp.status_code}, {sync_resp}, {sync_resp.__dict__}")
-
-        if not self.client.rooms.get(room_id, None):
-            logger.debug(f"Message put to queue for room {room_id}")
-            task = (self.client.callbacks._media, room_id, self.event.room_id, self.event)
-            if task[1] not in self.client.callbacks.rooms_pending:
-                self.client.callbacks.rooms_pending[task[1]] = []
-
-            self.client.callbacks.rooms_pending[task[1]].append(task)
-            return
-        
-        
-        sender_notify_event_id = None
+    async def _forward_message_to_room(self, room_id):
+        text = self.anonymise_text(self.anonymized)
+                
         if text:
             response = await send_text_to_room(self.client, room_id, text, notice=True)
-            sender_notify_event_id = response.event_id
             if type(response) != RoomSendResponse or not response.event_id:
-                logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
-                         f"room {self.handler.user.room_id}")
+                await self.handler.message_logging_room(f"Failed to relay event with id {self.event.event_id} to room {self.room.room_id} for user {self.handler.user.user_id}, dropping message: {text}", level=LogLevel.ERROR)
                 return
 
         response = await send_media_to_room(
@@ -198,13 +165,12 @@ class Media(Message):
                     response.event_id,
                     room_id,
                 )
-            except:
+            except Exception as e:
                 # When cloning messages after creating a new ticket room - messages will be sent again with identical event ids.
-                pass
+                logger.error(f"Error storing cloned event message in room {self.room.room_id} with event id {self.event.event_id} - {e}")
             logger.info(f"{media_name[self.media_type]} {self.event.event_id} relayed to room {self.handler.user.room_id}")
         else:
-            logger.error(f"Failed to relay {media_name[self.media_type]} {self.event.event_id} to"
-                         f"room {self.handler.user.room_id}")
+            await self.handler.message_logging_room(f"Failed to relay event with id {self.event.event_id} to room {self.room.room_id} for user {self.handler.user.user_id}, dropping message: {text}", level=LogLevel.ERROR)
 
     def relay_based_on_mention_room(self) -> bool:
         # First check if we want to relay this

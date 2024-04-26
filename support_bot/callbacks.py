@@ -1,6 +1,8 @@
+from collections import defaultdict
 import json
 import logging
 from datetime import datetime
+import time
 
 # noinspection PyPackageRequirements
 from nio import (
@@ -46,7 +48,7 @@ class Callbacks(object):
         self.command_prefix = config.command_prefix
         self.received_events = []
         self.welcome_message_sent_to_room = []
-        self.rooms_pending = {}
+        self.rooms_pending = defaultdict(list)
 
     async def decrypted_callback(self, room_id: str, event: RoomMessageText):
         if isinstance(event, RoomMessageText):
@@ -185,7 +187,36 @@ class Callbacks(object):
                 True,
             )
 
-    
+    async def check_awaited(self, response) -> None:
+        to_delete = []
+        for room_id in self.rooms_pending.keys():
+            if self.client.rooms.get(room_id, None):
+                for message_task in self.rooms_pending[room_id]:
+                    try:
+                        logger.info(f"Sending message to room {room_id}")
+                        await message_task[0](self.client.rooms[message_task[2]], message_task[3])
+                    except Exception as e:
+                        logger.error(f"Error performing queued task after joining room: {e}")
+                to_delete.append(room_id)
+            else:
+                ts = int(time.time())
+                live_tasks = []
+                for message_task in self.rooms_pending[room_id]:
+                    # Check if room hasn't been fetched in the past 600 seconds
+                    if (ts-message_task[4]) >= 600:
+                        logger.error(f"Task for room {message_task[2]} --- {message_task[3]} not assigned to room for > 600s, dropping task")
+                    else:
+                        live_tasks.append(message_task)
+                        
+                if live_tasks == []:
+                    to_delete.append(room_id)
+                else:
+                    self.rooms_pending[room_id] = live_tasks
+        
+        for room_id in to_delete:
+            del self.rooms_pending[room_id]
+
+
     async def room_encryption(self, room: MatrixRoom, event: RoomEncryptionEvent) -> None:
         """Callback for when an event signaling that encryption has been enabled in a room is received
 
@@ -194,18 +225,22 @@ class Callbacks(object):
 
             event (nio.events.room_events.RoomEncryptionEvent): The event
         """
+        ## Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
+        logger.info(f"Room encryption enabled in room {room.room_id}")
         
-        logger.warning(f"Room encryption enabled in room {room.room_id}")
-        # Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
-        if room.room_id in self.rooms_pending:
-            for message_task in self.rooms_pending[room.room_id]:
-                try:
-                    logger.warn(f"Sending message to room {room.room_id}")
-                    await message_task[0](self.client.rooms[message_task[2]], message_task[3])
-                except Exception as e:
-                    logger.error(f"Error performing queued task after joining room: {e}")
-            # Clear tasks
-            self.rooms_pending[room.room_id] = []
+        to_delete = []
+        for room_id in self.rooms_pending.keys():
+            if self.client.rooms.get(room_id, None):
+                for message_task in self.rooms_pending[room_id]:
+                    try:
+                        logger.info(f"Sending message to room {room_id}")
+                        await message_task[0](self.client.rooms[message_task[2]], message_task[3])
+                    except Exception as e:
+                        logger.error(f"Error performing queued task after joining room: {e}")
+                to_delete.append(room_id)
+                
+        for room_id in to_delete:
+            del self.rooms_pending[room_id]
     
     async def call_event(self, room: MatrixRoom, event: CallEvent):
         """Callback for when a m.call.invite event is received

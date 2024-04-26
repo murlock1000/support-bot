@@ -29,7 +29,8 @@ from nio import (
     CallInviteEvent,
     CallCandidatesEvent,
     CallHangupEvent,
-    CallAnswerEvent
+    CallAnswerEvent,
+    SyncResponse,
 )
 
 from support_bot.callbacks import Callbacks
@@ -78,9 +79,11 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
     # Set up event callbacks
     callbacks = Callbacks(client, store, config)
     # noinspection PyTypeChecker
+    client.add_response_callback(callbacks.check_awaited, (SyncResponse,))
+    # noinspection PyTypeChecker
     client.add_event_callback(callbacks.member, (RoomMemberEvent,))
     # noinspection PyTypeChecker
-    client.add_event_callback(callbacks.room_encryption, (RoomEncryptionEvent,))
+    client.add_event_callback(callbacks.room_encryption, (RoomEncryptionEvent, ))
     # noinspection PyTypeChecker
     client.add_event_callback(callbacks.message, (RoomMessageText, RoomMessageNotice, RoomMessageFormatted))
     # noinspection PyTypeChecker

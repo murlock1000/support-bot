@@ -33,7 +33,7 @@ try:
     # Run the main function of the bot
     try:
         print("Starting main loop")
-        main_loop.run_until_complete(main.main(config, main_loop, grpc_loop)).run_until_complete(aiolog.stop())
+        main_loop.run_until_complete(main.main(config, main_loop, grpc_loop))
     except Exception as e:
         print("Main loop exited: " + str(e))
     finally:

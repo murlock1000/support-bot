@@ -57,8 +57,7 @@ class RedactMessage(Message):
         return text
         
         
-    async def send_message_to_room(self, text:str, room_id:str):
-                
+    async def _forward_message_to_room(self, room_id:str):
         redacts_event_id = await self.get_related(self.redacts_event_id)
         
         if not redacts_event_id:

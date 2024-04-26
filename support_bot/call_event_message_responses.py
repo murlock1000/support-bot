@@ -8,6 +8,7 @@ from nio.events.room_events import CallEvent
 from support_bot.event_responses import Message
 from support_bot.chat_functions import send_text_to_room
 from support_bot.config import Config
+from support_bot.handlers.EventStateHandler import LogLevel
 from support_bot.storage import Storage
 from support_bot.utils import with_ratelimit
 
@@ -48,9 +49,6 @@ class CallEventMessage(Message):
     async def send_notice_to_room(self, room_id:str):
         if not self.client.rooms.get(room_id, None):
             task = (self.client.callbacks._redact, room_id, self.event.room_id, self.event)
-            if task[1] not in self.client.callbacks.rooms_pending:
-                self.client.callbacks.rooms_pending[task[1]] = []
-
             self.client.callbacks.rooms_pending[task[1]].append(task)
             return
         
@@ -68,44 +66,13 @@ class CallEventMessage(Message):
         else:
             logger.error("Failed to relay call invite event %s to room %s", self.event.event_id, self.room.room_id)
     
-    async def send_message_to_room(self, text:str, room_id:str):
+    async def _forward_message_to_room(self, room_id:str):
         # Send notice events to management room
         # Relay calls to any other room
         if room_id == self.config.management_room:
             if self.event_type == "m.call.invite":
                 await self.send_notice_to_room(room_id)
         else:
-            if not self.client.rooms.get(room_id, None):            
-                method, path = Api.sync(
-                    self.client.access_token,
-                    timeout=60000,
-                    filter={"room":{"rooms":[room_id]}},
-                    full_state=False,
-                )
-
-                sync_resp = await self.client._send(
-                    SyncResponse,
-                    method,
-                    path,
-                    # 0 if full_state: server doesn't respect timeout if full_state
-                    # + 15: give server a chance to naturally return before we timeout
-                    timeout=60000 / 1000 + 15,
-                )
-
-                if type(sync_resp) == SyncResponse:
-                    await self.client._handle_joined_rooms(sync_resp)
-                else:
-                    logger.warning(f"Call Sync response error received for room {room_id} with error code {sync_resp.status_code}, {sync_resp}, {sync_resp.__dict__}")
-
-            if not self.client.rooms.get(room_id, None):
-                logger.debug(f"Message put to queue for room {room_id}")
-                task = (self.client.callbacks._call_event, room_id, self.event.room_id, self.event)
-                if task[1] not in self.client.callbacks.rooms_pending:
-                    self.client.callbacks.rooms_pending[task[1]] = []
-
-                self.client.callbacks.rooms_pending[task[1]].append(task)
-                return
-
             resp = await with_ratelimit(self.client.room_send)(
                     room_id,
                     self.event.source.get("type", None),
@@ -113,11 +80,10 @@ class CallEventMessage(Message):
             )
         
             if type(resp) == ErrorResponse:
-                logger.error("Failed to relay call %s to room %s", self.event.event_id, self.room.room_id)
+                await self.handler.message_logging_room(f"Failed to relay call event with id {self.event.event_id} to room {self.room.room_id} for user {self.handler.user.user_id}, dropping message: {self.construct_received_message(self.room.room_id)}", level=LogLevel.ERROR)
             else:
                 logger.info("Call event %s relayed to room %s", self.event.event_id, self.room.room_id)
 
-        
 
     def relay_based_on_mention_room(self) -> bool:
         return True

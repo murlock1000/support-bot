@@ -1,9 +1,10 @@
 import logging
 import re
+import time
 from typing import List, Tuple, Union
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, RoomGetEventResponse
+from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, RoomGetEventResponse, Api, SyncResponse
 from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
 
@@ -44,6 +45,8 @@ class Message(object):
         self.handler = EventStateHandler(client, store, config, room, event)
         self.messageHandler = MessagingHandler(self.handler)
         
+        self.anonymized = self.config.anonymise_senders
+        
     def construct_received_message(self, for_room:str) -> str:
         raise NotImplementedError
 
@@ -63,7 +66,7 @@ class Message(object):
 
         msg = self.construct_received_message(self.handler.for_room)
         self.handler.log_console(msg, LogLevel.DEBUG)
-
+            
         # Handle different scenarios
         if self.handler.room_type == RoomType.ManagementRoom:
             await self.handle_management_room_message()
@@ -78,9 +81,6 @@ class Message(object):
     def save_incoming_event(self):
         incoming_event = IncomingEvent(self.store, self.handler.user.user_id, self.room.room_id, self.event.event_id)
         incoming_event.store_incoming_event()
-
-    def anonymise_text(self, anonymise: bool) -> str:
-        raise NotImplementedError
 
     async def get_related(self, related_event_id: str) -> Union[str, None]:
         resp = await self.client.room_get_event(self.room.room_id, related_event_id)
@@ -119,25 +119,48 @@ class Message(object):
                 text = _get_reply_msg(self.event)
                 
         return (replaces_event_id, text)
+
+    async def forward_message_to_room(self, room_id:str):
+        # Apply anonimization policies:
+        if self.handler.ticket:
+            self.anonymized = True
+        elif self.handler.user.current_chat_room_id:
+            self.anonymized = True
+        else:
+            self.anonymized = self.config.anonymise_senders
+            
+        # If we still don't have room data (encryption not initialized yet, or sync failed)
+        # then add message to queue to be sent later
+        if not self.client.rooms.get(room_id, None):
+            try:
+                await self.handler.message_logging_room(f"Failed to retrieve room {room_id} details to forward message from user {self.handler.user.user_id} in room {self.room.room_id}, dropping message: {self.construct_received_message(room_id)}", level=LogLevel.ERROR)
+            except Exception as e:
+                logger.error(f"Exception thrown while sending errored message: {room_id} {self.handler.user.user_id} in room {self.room.room_id}, dropping message: {self.construct_received_message(room_id)}")
+            task = (self.client.callbacks._message, room_id, self.event.room_id, self.event, int(time.time()))
+            # Add the task to the room queue to be sent when room is loaded
+            self.client.callbacks.rooms_pending[task[1]].append(task)
+            return
         
-    async def send_message_to_room(self, text, room):
-        raise NotImplementedError
-     
+        # Otherwise, send immediately
+        await self._forward_message_to_room(room_id)
+        
+    
+    async def _forward_message_to_room(self, room_it:str):
+        raise NotImplementedError()
+    
     async def handle_ticket_room_message(self):
         """Relay staff Ticket message to the client communications room."""
         if not await self.messageHandler.handle_ticket_message():
             return
-
-        text = self.anonymise_text(True)
-        await self.send_message_to_room(text, self.handler.user.room_id)
+        
+        await self.forward_message_to_room(self.handler.user.room_id)
 
     async def handle_chat_room_message(self):
         """Relay staff Chat message to the client communications room."""
         if not await self.messageHandler.handle_chat_message():
             return
 
-        text = self.anonymise_text(True)
-        await self.send_message_to_room(text, self.handler.user.room_id)
+        await self.forward_message_to_room(self.handler.user.room_id)
 
     def relay_based_on_mention_room(self) -> bool:
         raise NotImplementedError
@@ -153,12 +176,7 @@ class Message(object):
         room_id = await self.messageHandler.setup_relay()
 
         # Handle different relaying scenarios
-        if self.handler.ticket:
-            text = self.anonymise_text(True)
-        elif self.handler.user.current_chat_room_id:
-            text = self.anonymise_text(True)
-        else:
-            # Save the message event id into storage, to be sent to a ticket room later
+        if not self.handler.ticket and not self.handler.user.current_chat_room_id:
+            # Save the message event id into storage, to be copied to a ticket room later when one is raised
             self.save_incoming_event()
-            text = self.anonymise_text(self.config.anonymise_senders)
-        await self.send_message_to_room(text, room_id)
+        await self.forward_message_to_room(room_id)

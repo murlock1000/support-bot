@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import time
 from typing import Optional
 
 # noinspection PyPackageRequirements
@@ -338,9 +339,9 @@ class Command(object):
             resp = await self.client.room_get_event(event.room_id, event.event_id)
             if isinstance(resp, RoomGetEventResponse):
                 if isinstance(resp.event, (RoomMessageText, RoomMessageNotice, RoomMessageFormatted)):
-                    task = (self.client.callbacks._message, ticket.ticket_room_id, event.room_id, resp.event)
+                    task = (self.client.callbacks._message, ticket.ticket_room_id, event.room_id, resp.event, int(time.time()))
                 elif isinstance(resp.event, (RoomMessageMedia, RoomEncryptedMedia)):
-                    task = (self.client.callbacks._media, ticket.ticket_room_id, event.room_id, resp.event)
+                    task = (self.client.callbacks._media, ticket.ticket_room_id, event.room_id, resp.event, int(time.time()))
                 else:
                     continue
                 
@@ -352,9 +353,6 @@ class Command(object):
                 if task[1] in self.client.rooms:
                     await task[0](self.client.rooms[task[2]], task[3])
                 else:
-                    if task[1] not in self.client.callbacks.rooms_pending:
-                        self.client.callbacks.rooms_pending[task[1]] = []
-
                     self.client.callbacks.rooms_pending[task[1]].append(task)
             else:
                 msg = f"Failed to get event {event.event_id} from user {event.user_id} in room {event.room_id}. Event was not copied to new room."
