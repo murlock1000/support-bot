@@ -1,16 +1,24 @@
 [Unit]
 Description=Ticketing system for Matrix Synapse Element implemented through a matrix bot.
+Requires=docker.service
+After=docker.service
 
 [Service]
-Type=simple
 User=support_bot
 Group=support_bot
-WorkingDirectory=/path/to/support_bot/docker
-ExecStart=/usr/bin/docker-compose up support_bot
-ExecStop=/usr/bin/docker-compose stop support_bot
-RemainAfterExit=yes
+
 Restart=always
-RestartSec=3
+RestartSec=10
+
+WorkingDirectory=/path/to/support_bot/docker
+
+# Remove old container
+ExecStartPre=/usr/bin/docker-compose down support_bot
+# Compose up
+ExecStart=/usr/bin/docker-compose up support_bot
+
+# Compose down
+ExecStop=/usr/bin/docker-compose down support_bot
 
 [Install]
 WantedBy=multi-user.target
