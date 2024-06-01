@@ -107,11 +107,11 @@ Create your GRPC SSL certificates (or use default ones for development) in `cred
 
 #### (Optional) Set up a Postgres database
 
-Create a postgres user and database for nio-poll-bot:
+Create a postgres user and database for support-bot:
 
 ```
-sudo -u postgresql psql createuser nio-poll-bot -W  # prompts for a password
-sudo -u postgresql psql createdb -O nio-poll-bot nio-poll-bot
+sudo -u postgresql psql createuser support-bot -W  # prompts for a password
+sudo -u postgresql psql createdb -O support-bot support-bot
 ```
 
 Edit the `storage.database` config option, replacing the `sqlite://...` string with `postgres://...`. The syntax is:

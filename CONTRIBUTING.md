@@ -52,3 +52,10 @@ the linting CI happy:
 Take a look at the [issues
 list](https://github.com/murlock1000/support-bot/issues). What
 feature would you like to see or bug do you want to be fixed?
+
+# Useful resources for working with Matrix
+
+* A [template](https://github.com/poljar/matrix-nio) for creating bots with
+matrix-nio.
+* The documentation for [matrix-nio](https://matrix-nio.readthedocs.io/en/latest/nio.html).
+* Matrix Client-Server API [documentation](https://matrix.org/docs/api/#overview) (also allows configuring and sending events).

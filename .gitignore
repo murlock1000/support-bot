@@ -27,6 +27,7 @@ config.yaml
 config.docker.yaml
 
 # TLS configuration
+data/credentials/*
 localhost.crt
 localhost.key
 root.crt
