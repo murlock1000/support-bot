@@ -1,7 +1,7 @@
 import json
 import logging
 
-from nio import RoomCreateResponse, RoomCreateError, SyncResponse
+from nio import RoomCreateResponse, RoomCreateError, SyncResponse, SyncError
 
 from support_bot.models.Repositories.TicketRepository import TicketStatus
 from support_bot.utils import get_username
@@ -35,10 +35,13 @@ class MessagingHandler(object):
             syncResp = await filtered_sync(self.client, full_state=False, sync_filter=json.dumps(sync_filter,  separators=(",", ":")), since="None")
             if type(syncResp) == SyncResponse:
                 msg = f"Received SyncResponse for room {resp.room_id} after Creation"
+            elif type(resp) == SyncError:
+                msg = f"Received SyncError for room {resp.room_id}: {resp} - {resp.message} after Creation"
+                logger.error(msg)
             else:
-                msg = f"Received SyncError for room {resp.room_id} after Creation"
-                logger.info(msg)
-            
+                msg = f"Received Unknown response for room {resp.room_id}: {resp} after Creation"
+                logger.error(msg)
+                
             user.update_communications_room(resp.room_id)
             await send_text_to_room(
                 self.client, self.room.room_id,

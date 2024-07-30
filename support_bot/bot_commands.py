@@ -17,7 +17,8 @@ from nio import (RoomSendResponse,
                  RoomEncryptedMedia,
                  ErrorResponse,
                  RoomKickError,
-                 SyncResponse
+                 SyncResponse,
+                 SyncError
                 )
 from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
@@ -373,8 +374,10 @@ class Command(object):
         resp = await filtered_sync(self.client, full_state=full_state, sync_filter=filter, since=since)
         if type(resp) == SyncResponse:
             msg += f"Received SyncResponse for room {room_id} : {resp}"
+        elif type(resp) == SyncError:
+            msg += f"Received SyncError for room {room_id}: {resp} - {resp.message}"
         else:
-            msg += f"Received SyncError for room {room_id}: {resp}"
+            msg += f"Received Unknown response for room {room_id}: {resp}"
         logger.info(msg)
 
         await send_text_to_room(
