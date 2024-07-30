@@ -36,7 +36,7 @@ class MessagingHandler(object):
             if type(syncResp) == SyncResponse:
                 msg = f"Received SyncResponse for room {resp.room_id} after Creation"
             elif type(resp) == SyncError:
-                msg = f"Received SyncError for room {resp.room_id}: {resp} - {resp.message} after Creation"
+                msg = f"Received SyncError for room {resp.room_id}: {resp} - {resp.message} msg += f"Received SyncError for room {room_id}: {resp} - {resp.message} - {resp.transport_response} - {resp.transport_response.content} - {resp.transport_response.status_code} After creation"
                 logger.error(msg)
             else:
                 msg = f"Received Unknown response for room {resp.room_id}: {resp} after Creation"

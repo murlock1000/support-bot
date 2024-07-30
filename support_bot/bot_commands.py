@@ -375,7 +375,7 @@ class Command(object):
         if type(resp) == SyncResponse:
             msg += f"Received SyncResponse for room {room_id} : {resp}"
         elif type(resp) == SyncError:
-            msg += f"Received SyncError for room {room_id}: {resp} - {resp.message}"
+            msg += f"Received SyncError for room {room_id}: {resp} - {resp.message} - {resp.transport_response} - {resp.transport_response.content} - {resp.transport_response.status_code}"
         else:
             msg += f"Received Unknown response for room {room_id}: {resp}"
         logger.info(msg)
