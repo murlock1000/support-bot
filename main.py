@@ -19,7 +19,7 @@ try:
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
     else:
-        config_path = "config.yaml"
+        config_path = "./data/config.yaml"
     config = Config(config_path)
 
     # Setup two threads for support-bot and grpc server

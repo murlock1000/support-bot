@@ -77,12 +77,12 @@ storage:
   database: "sqlite://bot.db"
   # The path to a directory for internal bot storage
   # containing encryption keys, sync tokens, etc.
-  store_path: "./store"
+  store_path: "./data/store"
 
 grpc_server:
-  server_certificate: ./credentials/localhost.crt
-  server_certificate_key: ./credentials/localhost.key
-  root_certificate: ./credentials/root.crt
+  server_certificate: ./data/credentials/localhost.crt
+  server_certificate_key: ./data/credentials/localhost.key
+  root_certificate: ./data/credentials/root.crt
   
 # Logging setup
 logging:
@@ -96,7 +96,7 @@ logging:
     # Whether logging to a file is enabled
     enabled: false
     # The path to the file to log to. May be relative or absolute
-    filepath: bot.log
+    filepath: ./data/bot.log
   # Configure logging to the console output
   console_logging:
     # Whether logging to the console is enabled
