@@ -1,22 +1,18 @@
 import logging
-import re
 import time
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 
 # noinspection PyPackageRequirements
-from nio import RoomSendResponse, RoomSendError, AsyncClient, RoomMessage, RoomGetEventResponse, Api, SyncResponse
+from nio import AsyncClient, RoomMessage, RoomGetEventResponse
 from nio.rooms import MatrixRoom
-from nio.events.room_events import RoomMessageText
 
-from support_bot.bot_commands import Command
-from support_bot.chat_functions import send_reaction, send_text_to_room
 from support_bot.config import Config
 from support_bot.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from support_bot.handlers.MessagingHandler import MessagingHandler
-from support_bot.models.EventPairs import EventPair, SingleEvent
+from support_bot.models.EventPairs import EventPair
 from support_bot.models.IncomingEvent import IncomingEvent
 from support_bot.storage import Storage
-from support_bot.utils import _get_reply_msg, get_in_reply_to, get_mentions, get_replaces, get_reply_msg, get_raise_msg
+from support_bot.utils import _get_reply_msg, get_in_reply_to, get_replaces
 
 logger = logging.getLogger(__name__)
 
@@ -133,9 +129,9 @@ class Message(object):
         # then add message to queue to be sent later
         if not self.client.rooms.get(room_id, None):
             try:
-                await self.handler.message_logging_room(f"Failed to retrieve room {room_id} details to forward message from user {self.handler.user.user_id} in room {self.room.room_id}, dropping message: {self.construct_received_message(room_id)}", level=LogLevel.ERROR)
+                await self.handler.message_logging_room(f"Failed to retrieve room {room_id} details to forward message from user {self.handler.user.user_id} in room {self.room.room_id}, putting message task in queue to be sent when state arrives: {self.construct_received_message(room_id)}", level=LogLevel.INFO)
             except Exception as e:
-                logger.error(f"Exception thrown while sending errored message: {room_id} {self.handler.user.user_id} in room {self.room.room_id}, dropping message: {self.construct_received_message(room_id)}")
+                logger.error(f"Exception thrown while sending error message: {room_id} {self.handler.user.user_id} in room {self.room.room_id}, dropping message: {self.construct_received_message(room_id)}")
             task = (self.client.callbacks._message, room_id, self.event.room_id, self.event, int(time.time()))
             # Add the task to the room queue to be sent when room is loaded
             self.client.callbacks.rooms_pending[task[1]].append(task)

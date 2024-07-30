@@ -67,6 +67,7 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
         store_path=config.store_path,
         config=client_config,
     )
+    logger.info(f"Starting client, access token: {client.access_token}")
     
     # Start grpc server
     tm = grpc_server.server.ThreadManager(client, store, config, main_loop)
@@ -119,6 +120,8 @@ async def main(config: Config, main_loop:asyncio.AbstractEventLoop, grpc_loop:as
                     login_response = await client.login(
                         password=config.user_password, device_name=config.device_name,
                     )
+                    logger.info(login_response)
+                    logger.info(f"Started client, access token: {client.access_token}")
 
                     # Check if login failed
                     if type(login_response) == LoginError:

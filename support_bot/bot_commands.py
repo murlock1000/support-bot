@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import logging
 import time
 from typing import Optional
@@ -15,14 +16,15 @@ from nio import (RoomSendResponse,
                  RoomMessageMedia,
                  RoomEncryptedMedia,
                  ErrorResponse,
-                 RoomKickError
+                 RoomKickError,
+                 SyncResponse
                 )
 from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
 
 from support_bot import commands_help
-from support_bot.chat_functions import create_private_room, invite_to_room, send_text_to_room, kick_from_room, \
-    find_private_msg, is_user_in_room, send_shared_history_keys
+from support_bot.chat_functions import create_private_room, filtered_sync, invite_to_room, send_text_to_room, kick_from_room, \
+    find_private_msg, send_shared_history_keys
 from support_bot.config import Config
 from support_bot.errors import Errors, TicketNotFound
 from support_bot.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
@@ -39,7 +41,6 @@ from support_bot.storage import Storage
 from support_bot.utils import get_replaces, get_username
 
 logger = logging.getLogger(__name__)
-
 
 class Command(object):
     def __init__(self, client: AsyncClient, store: Storage, config: Config, command: str, room: MatrixRoom, event: RoomMessageText):
@@ -95,8 +96,8 @@ class Command(object):
             await self._raise_ticket()
         elif self.command.startswith("close"):
             await self._close_room()
-        elif self.command.startswith("forceclose"):
-            await self._force_close()
+        elif self.command.startswith("forcecloseticket"):
+            await self._force_close_ticket()
         elif self.command.startswith("reopen"):
             await self._reopen_ticket()
         elif self.command.startswith("opentickets"):
@@ -107,6 +108,14 @@ class Command(object):
             await self._add_staff()
         elif self.command.startswith("setupcommunicationsroom"):
             await self._setup_communications_room()
+        elif self.command.startswith("printroomstate"):
+            await self._print_room_state()
+        elif self.command.startswith("fetchroomstate"):
+            await self._fetch_room_state()
+        elif self.command.startswith("_deleteroomstate"):
+            await self.__delete_room_state()
+        elif self.command.startswith("messageroom"):
+            await self._message_room()
         elif self.command.startswith("chat"):
             await self._chat()
         else:
@@ -145,7 +154,6 @@ class Command(object):
             return
 
         help_messages = {
-            "commands":commands_help.AVAILABLE_COMMANDS,
             "message":commands_help.COMMAND_WRITE,
             "claimfor": commands_help.COMMAND_CLAIMFOR,
             "claim":commands_help.COMMAND_CLAIM,
@@ -156,9 +164,13 @@ class Command(object):
             "activeticket":commands_help.COMMAND_ACTIVE_TICKET,
             "addstaff":commands_help.COMMAND_ADD_STAFF,
             "setupcommunicationsroom":commands_help.COMMAND_SETUP_COMMUNICATIONS_ROOM,
+            "printroomstate":commands_help.COMMAND_PRINT_ROOM_STATE,
+            "fetchroomstate":commands_help.COMMAND_FETCH_ROOM_STATE,
+            "messageroom":commands_help.COMMAND_MESSAGE_ROOM,
             "chat":commands_help.COMMAND_CHAT,
-
+            "forcecloseticket": commands_help.COMMAND_FORCE_CLOSE_TICKET,
         }
+        help_messages["commands"] = ", ".join(list(help_messages.keys()))
         topic = self.args[0]
         text = help_messages.get(topic,"Unknown help topic!")
         await send_text_to_room(self.client, self.room.room_id, text)
@@ -329,6 +341,151 @@ class Command(object):
                 self.client, self.room.room_id, f"Failed to create a new DM for user {user_id} with error: {resp.status_code}",
             )
 
+    async def _fetch_room_state(self):
+        """
+        Fetches the room state of the provided room.
+        """
+
+        if len(self.args) < 4:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_FETCH_ROOM_STATE)
+            return
+
+        room_id = self.args[0]
+        filterStr = self.args[1]
+        full_state = self.args[2]
+        since = self.args[3]
+        
+        if filterStr == "{}":
+            filter = None
+        else:
+            filter = json.loads(filterStr)
+            
+        if full_state == "full":
+            full_state = True
+        else:
+            full_state = False
+            
+        filter_json = json.dumps(filter, separators=(",", ":"))
+            
+        msg = f"Fetching {full_state} since {since} state of room: {room_id} with filter {filter} -- {filter_json}: \n\n"
+        
+        #resp = await self.client.room_get_state(room_id)
+        resp = await filtered_sync(self.client, full_state=full_state, sync_filter=filter, since=since)
+        if type(resp) == SyncResponse:
+            msg += f"Received SyncResponse for room {room_id} : {resp}"
+        else:
+            msg += f"Received SyncError for room {room_id}: {resp}"
+        logger.info(msg)
+
+        await send_text_to_room(
+            self.client, self.room.room_id,
+            msg,
+        )
+        
+    async def __delete_room_state(self):
+        """
+        Deletes the room state of the provided room.
+        """
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_DELETE_ROOM_STATE)
+            return
+
+        room_id = self.args[0]
+
+        msg = ""
+        if room_id in self.client.rooms:
+            msg += "Deleting room from rooms list \n"
+            del self.client.rooms[room_id]
+        
+        if room_id in self.client.invited_rooms:
+            msg += "Deleting room from invited rooms list \n"
+            del self.client.rooms[room_id]
+        
+        msg += "Command complete"
+
+        logger.info(msg)
+
+        await send_text_to_room(
+            self.client, self.room.room_id,
+            msg,
+        )
+
+        
+    async def _message_room(self):
+        """
+        Sends text message to the provided room id.
+        """
+
+        if len(self.args) < 2:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_MESSAGE_ROOM)
+            return
+
+        room_id = self.args[0]
+        to_send= " ".join(self.args[1:])
+        
+        msg = ""
+        if not self.client.rooms.get(room_id, None):
+            msg += f"Failed to retrieve room {room_id} details, creating task for awaiting room status and sending message later. \n"
+            task = (self.client.callbacks._message, room_id, self.event.room_id, self.event, int(time.time()))
+            # Add the task to the room queue to be sent when room is loaded
+            self.client.callbacks.rooms_pending[task[1]].append(task)
+        else:
+            response = await send_text_to_room(self.client,
+                                       room_id, to_send,
+                                       False
+                                    )
+            if type(response) == RoomSendResponse and response.event_id:
+                msg += f"Message relayed to room {room_id}"
+            else:
+                msg += f"Failed to relay message to room {room_id}, dropping message"
+        
+        logger.info(msg)
+        await send_text_to_room(
+            self.client, self.room.room_id,
+            msg,
+            markdown_convert = True
+        )
+                
+    async def _print_room_state(self):
+        """
+        Fetches the room state of the provided room.
+        """
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_PRINT_ROOM_STATE)
+            return
+
+        room_id = self.args[0]
+        msg = f"Current known state of room: {room_id}: \n"
+        if room_id in self.client.rooms:
+            msg += "Room is present in room list \n"
+            room = self.client.rooms[room_id]
+            msg += f"Room name is: {room.name} | Creator: {room.creator} \n"
+            msg += f"Room users: {room.users.keys()} \n"
+            msg += f"Room invited users: {room.invited_users.keys()} \n"
+        else:
+            msg += "Room is not present in room list \n"
+        
+        if room_id in self.client.encrypted_rooms:
+            msg += "Room is present in encrypted room list \n"
+        else:
+            msg += "Room is not present in encrypted room list \n"
+            
+        if room_id in self.client.invited_rooms:
+            msg += "Room is present in invited room list \n"
+        else:
+            msg += "Room is not present in invited room list \n"
+        
+        logger.info(msg)        
+
+        await send_text_to_room(
+            self.client, self.room.room_id,
+            msg,
+            markdown_convert = True
+        )
+        
+            
     async def _copy_incoming_events(self, ticket:Ticket):
         incomingEvents = IncomingEvent.get_incoming_events(self.store, ticket.user_id)
         for event in incomingEvents:
@@ -501,7 +658,7 @@ class Command(object):
         if isinstance(response, RoomInviteResponse):
             logger.info(f"Invited staff {self.handler.staff.user_id} to chat room {chat.chat_room_id}")
         else:
-            msg = f"Failed to invite staff {self.handler.staff.user_id} to chat room {chat.chat_room_id}"
+            msg = f"Failed to invite staff {self.handler.staff.user_id} to chat room {chat.chat_room_id} - {response.message}"
             logger.info(msg)
             await send_text_to_room(self.client, self.room.room_id, msg,)
             return
@@ -539,9 +696,9 @@ class Command(object):
             self.client, self.event.sender, self.room.room_id
         )
 
-    async def _force_close(self):
+    async def _force_close_ticket(self):
         if len(self.args) < 1:
-            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_CHAT)
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_FORCE_CLOSE_TICKET)
             return
         
         ticket_id = self.args[0]

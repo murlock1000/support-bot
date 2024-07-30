@@ -1,13 +1,14 @@
+import json
 import logging
 
-from nio import RoomCreateResponse, RoomCreateError
+from nio import RoomCreateResponse, RoomCreateError, SyncResponse
 
 from support_bot.models.Repositories.TicketRepository import TicketStatus
 from support_bot.utils import get_username
 
 logger = logging.getLogger(__name__)
 
-from support_bot.chat_functions import create_private_room, send_text_to_room, find_private_msg
+from support_bot.chat_functions import create_private_room, filtered_sync, send_text_to_room, find_private_msg
 from support_bot.handlers.EventStateHandler import LogLevel, EventStateHandler
 
 
@@ -25,6 +26,19 @@ class MessagingHandler(object):
         username = get_username(self.client.user_id)
         resp = await create_private_room(self.client, user.user_id, username)
         if isinstance(resp, RoomCreateResponse):
+            # Fetch latest state from server after room creation
+            sync_filter = {
+                "room": {
+                    "rooms": [resp.room_id]
+                }
+            }
+            syncResp = await filtered_sync(self.client, full_state=False, sync_filter=json.dumps(sync_filter,  separators=(",", ":")), since="None")
+            if type(syncResp) == SyncResponse:
+                msg = f"Received SyncResponse for room {resp.room_id} after Creation"
+            else:
+                msg = f"Received SyncError for room {resp.room_id} after Creation"
+                logger.info(msg)
+            
             user.update_communications_room(resp.room_id)
             await send_text_to_room(
                 self.client, self.room.room_id,
@@ -36,8 +50,7 @@ class MessagingHandler(object):
                 self.client, self.room.room_id, f"Failed to create a new DM for user {user.user_id} with error: {resp.status_code}",
             )
             return False
-            
-            
+
     # Message in Ticket room business logic, return False on failure.
     async def handle_ticket_message(self) -> bool:
 

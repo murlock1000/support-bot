@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import List, Union, Dict, Iterator
+from typing import Any, List, Optional, Union, Dict, Iterator
 
 from commonmark import commonmark
 # noinspection PyPackageRequirements
@@ -16,7 +16,7 @@ from nio import (
     RoomVisibility,
     RoomInviteError,
     RoomInviteResponse, RoomKickResponse, RoomKickError, MatrixRoom, RoomAvatarEvent, ProfileGetAvatarResponse, DownloadResponse,
-    ToDeviceMessage
+    ToDeviceMessage, SyncError, SyncResponse, Api
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
 from support_bot.errors import RoomNotEncrypted, RoomNotFound
@@ -28,6 +28,7 @@ from support_bot.errors import RoomNotEncrypted, RoomNotFound
 from support_bot.utils import get_room_id, with_ratelimit
 
 logger = logging.getLogger(__name__)
+_FilterT = Union[None, str, Dict[Any, Any]]
 
 async def send_text_to_room(
     client: AsyncClient, room: str, message: str, notice: bool = True, markdown_convert: bool = True,
@@ -297,6 +298,83 @@ async def invite_to_room(
         elif isinstance(resp, RoomInviteError):
             logger.exception(f"Failed to invite user {mxid} to room {room_id} with error: {resp.status_code}")
         return resp
+
+async def filtered_sync(
+        client: AsyncClient,
+        timeout: Optional[int] = 0,
+        sync_filter: Optional[_FilterT] = None,
+        since: Optional[str] = None,
+        full_state: Optional[bool] = None,
+        set_presence: Optional[str] = None,
+    ) -> Union[SyncResponse, SyncError]:
+        """Synchronise the client's state with the latest state on the server.
+
+        In general you should use sync_forever() which handles additional
+        tasks automatically (like sending encryption keys among others).
+
+        Calls receive_response() to update the client state if necessary.
+
+        Args:
+            timeout(int, optional): The maximum time that the server should
+                wait for new events before it should return the request
+                anyways, in milliseconds.
+                If ``0``, no timeout is applied.
+                If ``None``, use ``AsyncClient.config.request_timeout``.
+                If a timeout is applied and the server fails to return after
+                15 seconds of expected timeout,
+                the client will timeout by itself.
+            sync_filter (Union[None, str, Dict[Any, Any]):
+                A filter ID that can be obtained from
+                ``AsyncClient.upload_filter()`` (preferred),
+                or filter dict that should be used for this sync request.
+            full_state (bool, optional): Controls whether to include the full
+                state for all rooms the user is a member of. If this is set to
+                true, then all state events will be returned, even if since is
+                non-empty. The timeline will still be limited by the since
+                parameter.
+            since (str, optional): A token specifying a point in time where to
+                continue the sync from. One of: ["None", "last", "next"]. 
+                None - imitates full sync for filtered room
+                last - uses the most recently used sync token
+                next - uses the next sync token
+            set_presence (str, optional): The presence state.
+                One of: ["online", "offline", "unavailable"]
+
+        Returns either a `SyncResponse` if the request was successful or
+        a `SyncError` if there was an error with the request.
+        """
+
+        if since == "None":
+            since = ''
+        elif since == "last":
+            since = client.loaded_sync_token
+        elif since == "next":
+            since = client.next_batch
+    
+        presence = set_presence or client._presence
+        method, path = Api.sync(
+            client.access_token,
+            since=since,
+            timeout=(
+                int(client.config.request_timeout) * 1000
+                if timeout is None
+                else timeout or None
+            ),
+            filter=sync_filter,
+            full_state=full_state,
+            set_presence=presence,
+        )
+
+        response = await client._send(
+            SyncResponse,
+            method,
+            path,
+            # 0 if full_state: server doesn't respect timeout if full_state
+            # + 15: give server a chance to naturally return before we timeout
+            timeout=0 if full_state or since == '' else timeout / 1000 + 15 if timeout else timeout,
+        )
+
+        return response
 
 ## MSC3061: Sharing room keys for past messages - matrix-nio does not yet support sharing room keys, so this has been
 ## Implemented from scratch until proper library support comes out.

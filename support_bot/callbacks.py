@@ -190,10 +190,11 @@ class Callbacks(object):
     async def check_awaited(self, response) -> None:
         to_delete = []
         for room_id in self.rooms_pending.keys():
-            if self.client.rooms.get(room_id, None):
+            if self.client.rooms.get(room_id, None) and room_id in self.client.encrypted_rooms:
                 for message_task in self.rooms_pending[room_id]:
                     try:
-                        logger.info(f"Sending message to room {room_id}")
+                        msg = f"Executing queued task for room {room_id}"
+                        logger.info(msg)
                         await message_task[0](self.client.rooms[message_task[2]], message_task[3])
                     except Exception as e:
                         logger.error(f"Error performing queued task after joining room: {e}")
@@ -202,9 +203,14 @@ class Callbacks(object):
                 ts = int(time.time())
                 live_tasks = []
                 for message_task in self.rooms_pending[room_id]:
-                    # Check if room hasn't been fetched in the past 600 seconds
-                    if (ts-message_task[4]) >= 600:
-                        logger.error(f"Task for room {message_task[2]} --- {message_task[3]} not assigned to room for > 600s, dropping task")
+                    # Check if room hasn't been fetched in the past 300 seconds
+                    if (ts-message_task[4]) >= 300:
+                        msg = (f"Task destined to room {message_task[2]} DROPPED due to not receiving encryption/room state for > 300s. DROPPING message from {message_task[3].sender} - {message_task[3].body}")
+                        try:
+                            logger.error(msg)
+                            await send_text_to_room(self.client, self.config.matrix_logging_room, msg)
+                        except Exception as e:
+                            logger.error(f"Exception thrown while sending error message: {room_id}")
                     else:
                         live_tasks.append(message_task)
                         
@@ -228,19 +234,7 @@ class Callbacks(object):
         ## Send all pending messages for the room when invited at least one user to the room (so encryption is initialized)
         logger.info(f"Room encryption enabled in room {room.room_id}")
         
-        to_delete = []
-        for room_id in self.rooms_pending.keys():
-            if self.client.rooms.get(room_id, None):
-                for message_task in self.rooms_pending[room_id]:
-                    try:
-                        logger.info(f"Sending message to room {room_id}")
-                        await message_task[0](self.client.rooms[message_task[2]], message_task[3])
-                    except Exception as e:
-                        logger.error(f"Error performing queued task after joining room: {e}")
-                to_delete.append(room_id)
-                
-        for room_id in to_delete:
-            del self.rooms_pending[room_id]
+        await self.check_awaited(None)
     
     async def call_event(self, room: MatrixRoom, event: CallEvent):
         """Callback for when a m.call.invite event is received

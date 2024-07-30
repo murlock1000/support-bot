@@ -1,6 +1,3 @@
-AVAILABLE_COMMANDS = """message, claim, raise, close, reopen, opentickets, \
-activeticket, addstaff, setupcommunicationsroom, chat"""
-
 COMMAND_WRITE = """Sends a message to a room using the bot. Usage:
 
 `!message <room ID or alias> <Text to write>`
@@ -69,6 +66,24 @@ Selects any DM room that only the bot and the user are in. Or creates a new DM a
 `!c setupcommunicationsroom <user id>`
 """
 
+COMMAND_PRINT_ROOM_STATE = """Prints the known room state of the provided room id. 
+Usage:
+
+`!c printroomstate <room id>`
+"""
+
+COMMAND_FETCH_ROOM_STATE = """Fetches the room state of the provided room id. 
+Usage:
+
+`!c fetchroomstate <filter json> <state> <since>`
+"""
+
+COMMAND_MESSAGE_ROOM = """Sends message to the room with provided room id. 
+Usage:
+
+`!c messageroom <room id> <message to send>`
+"""
+
 COMMAND_CHAT = """Create or join an existing chat for a user with a specified name or for the replied to message sender. Usage:
 
 Reply:
@@ -78,3 +93,10 @@ Standalone:
 `!c chat <user id>`
 """
 
+COMMAND_FORCE_CLOSE_TICKET = """Closes the ticket that has the provided id. Usage:
+`!c forcecloseticket <ticket id>`
+"""
+
+COMMAND_DELETE_ROOM_STATE = """Deletes local state of the provided room id. Usage:
+`!c _deleteroomstate <room id>`
+"""

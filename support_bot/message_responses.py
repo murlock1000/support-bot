@@ -214,7 +214,7 @@ class TextMessage(Message):
                 logger.error(f"Error storing cloned event message in room {self.room.room_id} with event id {self.event.event_id} - {e}")
             logger.info("Message %s relayed to room %s", self.event.event_id, self.room.room_id)
         else:
-            await self.handler.message_logging_room(f"Failed to relay event with id {self.event.event_id} to room {self.room.room_id} for user {self.handler.user.user_id}, dropping message: {self.construct_received_message(self.room.room_id)}", level=LogLevel.ERROR)
+            await self.handler.message_logging_room(f"Failed to relay event with id {self.event.event_id} to room {self.room.room_id} for user {self.handler.user.user_id} due to {response}, DROPPING message: {self.construct_received_message(self.room.room_id)}", level=LogLevel.ERROR)
 
 
     def relay_based_on_mention_room(self) -> bool:
