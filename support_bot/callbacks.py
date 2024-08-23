@@ -468,6 +468,17 @@ class Callbacks(object):
             return
 
         logger.info(f"Joined {room.room_id}")
+        
+        if self.config.welcome_message and not room.is_group:
+           #if room.room_id in self.welcome_message_sent_to_room:
+           #    logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
+           #    return
+           # Send welcome message
+           logger.info(f"Sending welcome message to room {room.room_id}")
+           self.welcome_message_sent_to_room.insert(0, room.room_id)
+           await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
+        else:
+           logger.info("Not sending welcome message - message not defined.")
 
     async def room_key(self, event: RoomKeyEvent):
         """Callback for ToDevice events like room key events."""
