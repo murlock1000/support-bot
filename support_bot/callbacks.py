@@ -469,7 +469,7 @@ class Callbacks(object):
 
         logger.info(f"Joined {room.room_id}")
         
-        if self.config.welcome_message and not room.is_group:
+        if self.config.welcome_message:
            #if room.room_id in self.welcome_message_sent_to_room:
            #    logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
            #    return
