@@ -479,7 +479,7 @@ class Callbacks(object):
                 task = (self.client.callbacks._message, room.room_id, self.event.room_id, self.event, int(time.time()))
                 # Add the task to the room queue to be sent when room is loaded
                 self.client.callbacks.rooms_pending[task[1]] = [task]
-            except Exception e:
+            except Exception as e:
                 logger.warning(f" Error while queueing welcome message: {e}")
             #self.welcome_message_sent_to_room.insert(0, room.room_id)
             #await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
