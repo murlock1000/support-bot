@@ -169,7 +169,7 @@ class Callbacks(object):
             logger.debug(f"Set new communications room for user to: {room_creator.user_id}")
 
             # Send welcome message if configured
-            if self.config.welcome_message: # and room.is_group:
+            if self.config.welcome_message and not room.is_group:
                 #if room.room_id in self.welcome_message_sent_to_room:
                 #    logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
                 #    return
@@ -186,6 +186,43 @@ class Callbacks(object):
                 self.client,
                 self.config.management_room_id,
                 f"I have joined room {room.display_name} (`{room.room_id}`).",
+                True,
+            )
+        elif event.membership == 'join':
+            # Only react to invites sent by us
+            if event.sender != self.client.user:
+                logger.info(f"{event.sender} Membership join in room {room.room_id}")
+                return
+            # Get the user who invited the bot
+            room_creator = User.get_existing(self.store, room.creator)
+            if not room_creator:
+                logger.info(f"Unknown user {room.creator} in room {room.room_id}")
+                return
+
+            logger.info(f"Support bot invited by: {room_creator.user_id}")
+
+            # Update User Communication room id
+            #room_creator.update_communications_room(room.room_id)
+            #logger.debug(f"Set new communications room for user to: {room_creator.user_id}")
+
+            # Send welcome message if configured
+            if self.config.welcome_message:
+                #if room.room_id in self.welcome_message_sent_to_room:
+                #    logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
+                #    return
+                # Send welcome message
+                logger.info(f"Sending welcome message to room {room.room_id}")
+                #self.welcome_message_sent_to_room.insert(0, room.room_id)
+                await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
+            else:
+                logger.info("Not sending welcome message - message not defined.")
+
+            # Notify the management room for visibility
+            logger.info(f"Notifying management room of room join to {room.room_id}")
+            await send_text_to_room(
+                self.client,
+                self.config.management_room_id,
+                f"I have received join event in room {room.display_name} (`{room.room_id}`).",
                 True,
             )
 
