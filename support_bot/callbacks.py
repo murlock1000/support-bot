@@ -162,7 +162,7 @@ class Callbacks(object):
                 # Create new User entry if doesn't exist yet
                 room_creator = User.create_new(self.store, room.creator)
 
-            logger.debug(f"Support bot invited by: {room_creator.user_id}")
+            logger.info(f"Support bot invited by: {room_creator.user_id}")
 
             # Update User Communication room id
             room_creator.update_communications_room(room.room_id)
@@ -177,6 +177,8 @@ class Callbacks(object):
                 logger.info(f"Sending welcome message to room {room.room_id}")
                 self.welcome_message_sent_to_room.insert(0, room.room_id)
                 await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
+            else:
+                logger.info("Not sending welcome message - message not defined.")
 
             # Notify the management room for visibility
             logger.info(f"Notifying management room of room join to {room.room_id}")
