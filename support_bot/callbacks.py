@@ -474,11 +474,13 @@ class Callbacks(object):
             #    logger.debug(f"Not sending welcome message to room {room.room_id} - it's been sent already!")
             #    return
             # Send welcome message
-            logger.info(f"Sending welcome message to room {room.room_id}")
-            task = (self.client.callbacks._message, room.room_id, self.event.room_id, self.event, int(time.time()))
-            # Add the task to the room queue to be sent when room is loaded
-            self.client.callbacks.rooms_pending[task[1]].append(task)
-            
+            try:
+                logger.info(f"Sending welcome message to room {room.room_id}")
+                task = (self.client.callbacks._message, room.room_id, self.event.room_id, self.event, int(time.time()))
+                # Add the task to the room queue to be sent when room is loaded
+                self.client.callbacks.rooms_pending[task[1]] = [task]
+            except Exception e:
+                logger.warning(f" Error while queueing welcome message: {e}")
             #self.welcome_message_sent_to_room.insert(0, room.room_id)
             #await send_text_to_room(self.client, room.room_id, self.config.welcome_message, True)
         else:
