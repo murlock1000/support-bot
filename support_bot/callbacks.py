@@ -234,7 +234,10 @@ class Callbacks(object):
                     try:
                         msg = f"Executing queued task for room {room_id}"
                         logger.info(msg)
-                        await message_task[0](self.client.rooms[message_task[2]], message_task[3])
+                        if message_task[0] == send_text_to_room:
+                            await send_text_to_room(self.client, message_task[2], message_task[3])
+                        else:
+                            await message_task[0](self.client.rooms[message_task[2]], message_task[3])
                     except Exception as e:
                         logger.error(f"Error performing queued task after joining room: {e}")
                 to_delete.append(room_id)
