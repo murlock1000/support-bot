@@ -200,6 +200,11 @@ class CommandHandlerStub(object):
                 request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
                 response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
+        self.DeleteTicketRoom = channel.unary_unary(
+                '/support_bot.CommandHandler/DeleteTicketRoom',
+                request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
 
 
 class CommandHandlerServicer(object):
@@ -235,6 +240,12 @@ class CommandHandlerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteTicketRoom(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CommandHandlerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -260,6 +271,11 @@ def add_CommandHandlerServicer_to_server(servicer, server):
             ),
             'ReopenTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.ReopenTicket,
+                    request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
+            'DeleteTicketRoom': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteTicketRoom,
                     request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
                     response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
@@ -353,6 +369,23 @@ class CommandHandler(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/ReopenTicket',
+            proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteTicketRoom(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/DeleteTicketRoom',
             proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
             proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
