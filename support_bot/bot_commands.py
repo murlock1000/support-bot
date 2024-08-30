@@ -718,7 +718,7 @@ class Command(object):
             await send_text_to_room(
                 self.client, self.room.room_id, msg,)
         else:
-            if ticket.status != TicketStatus.CLOSED:
+            if ticket.status == TicketStatus.OPEN:
                 ticket.set_status(TicketStatus.CLOSED)
 
                 current_user_ticket_id = ticket.find_user_current_ticket_id()
@@ -921,7 +921,7 @@ async def reopen_ticket(client: AsyncClient, store: Storage, ticket_id: str, man
                 else:
                     logger.warning(f"Failed to invite {staff} to room {ticket.ticket_room_id}: {resp}")
         else:
-            return ErrorResponse(f"Ticket {ticket.id} is already open", Errors.INVALID_ROOM_STATE)
+            return ErrorResponse(f"Ticket {ticket.id} is {ticket.status}, not in CLOSED state.", Errors.INVALID_ROOM_STATE)
 
 async def claimfor(client: AsyncClient, store: Storage, user_id:str, ticket_id:str) -> Optional[ErrorResponse]:
         """
@@ -967,7 +967,7 @@ async def close_ticket(client: AsyncClient, store: Storage, ticket_id:str, manag
         if not ticket:
             return TicketNotFound(ticket_id)
         else:
-            if ticket.status != TicketStatus.CLOSED:
+            if ticket.status == TicketStatus.OPEN:
                 ticket.set_status(TicketStatus.CLOSED)
 
                 current_user_ticket_id = ticket.find_user_current_ticket_id()
