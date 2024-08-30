@@ -118,3 +118,15 @@ class CommandHandler(support_bot_pb2_grpc.CommandHandler):
             context.set_code(500)
             context.set_details(resp.message)
         return support_bot_pb2.EmptyResponse()
+    
+    async def DeleteTicketRoom(
+        self,
+        request: support_bot_pb2.TicketRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> support_bot_pb2.EmptyResponse:
+        resp = await self.tm.delete_ticket_room(request.ticket_id)
+        
+        if isinstance(resp, ErrorResponse):
+            context.set_code(500)
+            context.set_details(resp.message)
+        return support_bot_pb2.EmptyResponse()

@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 from datetime import datetime, timedelta
 from support_bot import chat_functions
-from support_bot.bot_commands import Command, claim, claimfor, close_ticket, reopen_ticket, unassign_staff_from_ticket
+from support_bot.bot_commands import Command, claim, claimfor, close_ticket, reopen_ticket, unassign_staff_from_ticket, delete_ticket_room
 from support_bot.config import Config
 from support_bot.errors import Errors
 from support_bot.storage import Storage
@@ -89,6 +89,13 @@ class ThreadManager():
 
     async def reopen_ticket(self, ticket_id:str) -> Optional[ErrorResponse]:
         future = asyncio.run_coroutine_threadsafe(reopen_ticket(self.client, self.store, ticket_id, self.config.management_room_id), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while reopening ticket", Errors.ASYNC_TIMEOUT)
+        
+    async def delete_ticket_room(self, ticket_id:str) -> Optional[ErrorResponse]:
+        future = asyncio.run_coroutine_threadsafe(delete_ticket_room(self.client, self.store, ticket_id, self.config.matrix_logging_room), self.main_loop)
         try:
             return await self.wait_for(future, self.timeout)
         except asyncio.TimeoutError:

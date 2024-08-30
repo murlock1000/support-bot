@@ -7,31 +7,31 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class HelloRequest(_message.Message):
-    __slots__ = ["name"]
+    __slots__ = ("name",)
     NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     def __init__(self, name: _Optional[str] = ...) -> None: ...
 
 class HelloReply(_message.Message):
-    __slots__ = ["message"]
+    __slots__ = ("message",)
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     message: str
     def __init__(self, message: _Optional[str] = ...) -> None: ...
 
 class AvatarURLRequest(_message.Message):
-    __slots__ = ["user_id"]
+    __slots__ = ("user_id",)
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     user_id: str
     def __init__(self, user_id: _Optional[str] = ...) -> None: ...
 
 class AvatarURLReply(_message.Message):
-    __slots__ = ["avatar_url"]
+    __slots__ = ("avatar_url",)
     AVATAR_URL_FIELD_NUMBER: _ClassVar[int]
     avatar_url: str
     def __init__(self, avatar_url: _Optional[str] = ...) -> None: ...
 
 class UserWithTicketRequest(_message.Message):
-    __slots__ = ["user_id", "ticket_id"]
+    __slots__ = ("user_id", "ticket_id")
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     TICKET_ID_FIELD_NUMBER: _ClassVar[int]
     user_id: str
@@ -39,17 +39,17 @@ class UserWithTicketRequest(_message.Message):
     def __init__(self, user_id: _Optional[str] = ..., ticket_id: _Optional[str] = ...) -> None: ...
 
 class TicketRequest(_message.Message):
-    __slots__ = ["ticket_id"]
+    __slots__ = ("ticket_id",)
     TICKET_ID_FIELD_NUMBER: _ClassVar[int]
     ticket_id: str
     def __init__(self, ticket_id: _Optional[str] = ...) -> None: ...
 
 class EmptyResponse(_message.Message):
-    __slots__ = []
+    __slots__ = ()
     def __init__(self) -> None: ...
 
 class MessageRequest(_message.Message):
-    __slots__ = ["room_id", "start"]
+    __slots__ = ("room_id", "start")
     ROOM_ID_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     room_id: str
@@ -57,7 +57,7 @@ class MessageRequest(_message.Message):
     def __init__(self, room_id: _Optional[str] = ..., start: _Optional[str] = ...) -> None: ...
 
 class MessageResponse(_message.Message):
-    __slots__ = ["room_id", "start", "end", "chunk"]
+    __slots__ = ("room_id", "start", "end", "chunk")
     ROOM_ID_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     END_FIELD_NUMBER: _ClassVar[int]
@@ -69,7 +69,7 @@ class MessageResponse(_message.Message):
     def __init__(self, room_id: _Optional[str] = ..., start: _Optional[str] = ..., end: _Optional[str] = ..., chunk: _Optional[_Iterable[_Union[Event, _Mapping]]] = ...) -> None: ...
 
 class Event(_message.Message):
-    __slots__ = ["event_id", "sender", "server_timestamp", "content"]
+    __slots__ = ("event_id", "sender", "server_timestamp", "content")
     EVENT_ID_FIELD_NUMBER: _ClassVar[int]
     SENDER_FIELD_NUMBER: _ClassVar[int]
     SERVER_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
