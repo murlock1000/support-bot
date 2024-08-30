@@ -9,6 +9,7 @@ class Errors(Enum):
     UNKNOWN_ROOM = "UNKNOWN_ROOM"
     INVALID_ROOM_STATE = "INVALID_ROOM_STATE"
     ASYNC_TIMEOUT = "ASYNC_TIMEOUT"
+    LOGIC_CHECK = "LOGIC_CHECK"
     
 
 class TicketNotFound(ErrorResponse):

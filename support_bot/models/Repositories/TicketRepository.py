@@ -7,6 +7,7 @@ class TicketStatus(Enum):
     CLOSED = "closed"
     IN_PROGRESS = "in_progress"
     STUCK = "STUCK"
+    DELETED = "deleted"
 
 class TicketRepository(object):
     def __init__(self, storage:Storage) -> None:

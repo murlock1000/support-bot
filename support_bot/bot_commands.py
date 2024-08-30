@@ -18,7 +18,9 @@ from nio import (RoomSendResponse,
                  ErrorResponse,
                  RoomKickError,
                  SyncResponse,
-                 SyncError
+                 SyncError,
+                 RoomLeaveError,
+                 RoomForgetError,
                 )
 from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
@@ -115,6 +117,8 @@ class Command(object):
             await self._fetch_room_state()
         elif self.command.startswith("_deleteroomstate"):
             await self.__delete_room_state()
+        elif self.command.startswith("_deleteticketroom"):
+            await self.__delete_ticket_room()
         elif self.command.startswith("messageroom"):
             await self._message_room()
         elif self.command.startswith("chat"):
@@ -170,6 +174,7 @@ class Command(object):
             "messageroom":commands_help.COMMAND_MESSAGE_ROOM,
             "chat":commands_help.COMMAND_CHAT,
             "forcecloseticket": commands_help.COMMAND_FORCE_CLOSE_TICKET,
+            "deleteticketroom": commands_help.COMMAND_DELETE_TICKET_ROOM,
         }
         help_messages["commands"] = ", ".join(list(help_messages.keys()))
         topic = self.args[0]
@@ -747,6 +752,26 @@ class Command(object):
         if isinstance(resp, ErrorResponse):
             await send_text_to_room(self.client, self.room.room_id, f"Failed to close Ticket: {resp.message}")
     
+    async def __delete_ticket_room(self) -> None:
+        """
+        Staff delete the Ticket room.
+        """
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_DELETE_TICKET_ROOM)
+            return
+        
+        ticket_id = self.args[0]
+        
+        ticket:Ticket = Ticket.get_existing(self.store, ticket_id)
+        if not ticket:
+            msg = f"Could not find Ticket with ticket id {ticket_id} to delete room of"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+        else:
+            resp = await delete_ticket_room(self.client, self.store, ticket_id, self.config.matrix_logging_room)
+            if isinstance(resp, ErrorResponse):
+                await send_text_to_room(self.client, self.room.room_id, f"Failed to delete Ticket: {resp.message}")
     
     async def _reopen_ticket(self) -> None:
         """
@@ -969,6 +994,47 @@ async def close_ticket(client: AsyncClient, store: Storage, ticket_id:str, manag
                     ) 
             else:
                 return ErrorResponse(f"Ticket {ticket.id} is already closed", Errors.INVALID_ROOM_STATE)
+
+async def delete_ticket_room(client: AsyncClient, store: Storage, ticket_id:str, management_room_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff delete the Ticket room.
+        """
+
+        ticket:Ticket = Ticket.get_existing(store, ticket_id)
+        if not ticket:
+            return TicketNotFound(ticket_id)
+        else:
+            if ticket.status == TicketStatus.DELETED:
+                return ErrorResponse(f"Ticket {ticket.id} room already deleted", Errors.LOGIC_CHECK)
+            
+            if ticket.status != TicketStatus.CLOSED:
+                return ErrorResponse(f"Ticket {ticket.id} room must be in CLOSED state to be deleted", Errors.LOGIC_CHECK)
+            
+            if ticket.ticket_room_id in client.rooms:
+                ticket_room:MatrixRoom = client.rooms[ticket.ticket_room_id]
+            else:
+                return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} not found in local state", Errors.INVALID_ROOM_STATE)
+            
+            if len(ticket_room.users) > 1:
+                return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} has more than one user: {', '.join(ticket_room.invited_users.keys())}", Errors.LOGIC_CHECK)
+                
+            if len(ticket_room.invited_users) != 0:
+                return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} has pending invites: {', '.join(ticket_room.invited_users.keys())}", Errors.LOGIC_CHECK)
+
+            response = await client.room_leave(ticket.ticket_room_id)
+            if isinstance(response, RoomLeaveError):
+                logger.error(f"Failed to leave room: {response}")
+                return ErrorResponse(f"Failed to leave ticket {ticket.id} room {ticket.ticket_room_id}: {response}", Errors.EXCEPTION)
+        
+            response = await client.room_forget(ticket.ticket_room_id)
+            if isinstance(response, RoomForgetError):
+                logger.error(f"Failed to forget room: {response}")
+
+            ticket.set_status(TicketStatus.DELETED)
+                
+            msg = f"Deleted Ticket {ticket.id} room {ticket.ticket_room_id}"
+            logger.info(msg)
+            await send_text_to_room(client, management_room_id, msg,)
 
 async def unassign_support_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
         ticket:Ticket = Ticket.get_existing(store, ticket_id)
