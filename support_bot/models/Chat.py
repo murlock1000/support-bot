@@ -126,14 +126,30 @@ class Chat(object):
     def claimfor_chat(self, support_id:str):
         # Claim the chat for support member
 
-        support = self.chatRep.get_assigned_support(self.id)
+        support = self.chatRep.get_assigned_support(self.chat_room_id)
 
         # Check if support not assigned to ticket already
         if support_id in [s['user_id'] for s in support]:
             return
 
         # Assign support member to the ticket
-        self.chatRep.assign_support_to_chat(self.id, support_id)
+        self.chatRep.assign_support_to_chat(self.chat_room_id, support_id)
+        
+    def get_assigned_support(self):
+        support = self.chatRep.get_assigned_support(self.chat_room_id)
+
+        return [s['user_id'] for s in support]
+    
+    def unassign_support(self, support_id:str):
+        self.chatRep.remove_support_from_chat(self.chat_room_id, support_id)
+        
+    def unassign_staff(self, staff_id:str):
+        self.chatRep.remove_staff_from_chat(self.chat_room_id, staff_id)
+    
+    def get_assigned_staff(self):
+        staff = self.chatRep.get_assigned_staff(self.chat_room_id)
+
+        return [s['user_id'] for s in staff]
         
     def _close_chat(self):
         self.chatRep.set_chat_closed_at(self.chat_room_id, datetime.now())
