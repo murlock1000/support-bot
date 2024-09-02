@@ -36,11 +36,16 @@ message AvatarURLReply {
 
 service CommandHandler {
   rpc RemoveStaffFromTicket (UserWithTicketRequest) returns (EmptyResponse) {}
+  rpc RemoveStaffFromChat (UserWithChatRequest) returns (EmptyResponse) {}
   rpc CloseTicket (TicketRequest) returns (EmptyResponse) {}
+  rpc CloseChat (ChatRequest) returns (EmptyResponse) {}
   rpc ClaimTicket (UserWithTicketRequest) returns (EmptyResponse) {}
   rpc ClaimForTicket (UserWithTicketRequest) returns (EmptyResponse) {}
+  rpc ClaimChat (UserWithChatRequest) returns (EmptyResponse) {}
+  rpc ClaimForChat (UserWithChatRequest) returns (EmptyResponse) {}
   rpc ReopenTicket (TicketRequest) returns (EmptyResponse) {}
   rpc DeleteTicketRoom (TicketRequest) returns (EmptyResponse) {}
+  rpc DeleteChatRoom (ChatRequest) returns (EmptyResponse) {}
 }
 
 message UserWithTicketRequest {
@@ -48,8 +53,17 @@ message UserWithTicketRequest {
   string ticket_id = 2;
 }
 
+message UserWithChatRequest {
+  string user_id = 1;
+  string chat_room_id = 2;
+}
+
 message TicketRequest {
   string ticket_id = 1;
+}
+
+message ChatRequest {
+  string chat_room_id = 1;
 }
 
 message EmptyResponse {

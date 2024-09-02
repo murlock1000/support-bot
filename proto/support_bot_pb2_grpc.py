@@ -180,9 +180,19 @@ class CommandHandlerStub(object):
                 request_serializer=proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
                 response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
+        self.RemoveStaffFromChat = channel.unary_unary(
+                '/support_bot.CommandHandler/RemoveStaffFromChat',
+                request_serializer=proto_dot_support__bot__pb2.UserWithChatRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
         self.CloseTicket = channel.unary_unary(
                 '/support_bot.CommandHandler/CloseTicket',
                 request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
+        self.CloseChat = channel.unary_unary(
+                '/support_bot.CommandHandler/CloseChat',
+                request_serializer=proto_dot_support__bot__pb2.ChatRequest.SerializeToString,
                 response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
         self.ClaimTicket = channel.unary_unary(
@@ -195,6 +205,16 @@ class CommandHandlerStub(object):
                 request_serializer=proto_dot_support__bot__pb2.UserWithTicketRequest.SerializeToString,
                 response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
+        self.ClaimChat = channel.unary_unary(
+                '/support_bot.CommandHandler/ClaimChat',
+                request_serializer=proto_dot_support__bot__pb2.UserWithChatRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
+        self.ClaimForChat = channel.unary_unary(
+                '/support_bot.CommandHandler/ClaimForChat',
+                request_serializer=proto_dot_support__bot__pb2.UserWithChatRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
         self.ReopenTicket = channel.unary_unary(
                 '/support_bot.CommandHandler/ReopenTicket',
                 request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
@@ -203,6 +223,11 @@ class CommandHandlerStub(object):
         self.DeleteTicketRoom = channel.unary_unary(
                 '/support_bot.CommandHandler/DeleteTicketRoom',
                 request_serializer=proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+                response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
+                )
+        self.DeleteChatRoom = channel.unary_unary(
+                '/support_bot.CommandHandler/DeleteChatRoom',
+                request_serializer=proto_dot_support__bot__pb2.ChatRequest.SerializeToString,
                 response_deserializer=proto_dot_support__bot__pb2.EmptyResponse.FromString,
                 )
 
@@ -216,7 +241,19 @@ class CommandHandlerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RemoveStaffFromChat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CloseTicket(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CloseChat(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -234,6 +271,18 @@ class CommandHandlerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ClaimChat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClaimForChat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReopenTicket(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -241,6 +290,12 @@ class CommandHandlerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DeleteTicketRoom(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteChatRoom(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -254,9 +309,19 @@ def add_CommandHandlerServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_support__bot__pb2.UserWithTicketRequest.FromString,
                     response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
+            'RemoveStaffFromChat': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveStaffFromChat,
+                    request_deserializer=proto_dot_support__bot__pb2.UserWithChatRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
             'CloseTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.CloseTicket,
                     request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
+            'CloseChat': grpc.unary_unary_rpc_method_handler(
+                    servicer.CloseChat,
+                    request_deserializer=proto_dot_support__bot__pb2.ChatRequest.FromString,
                     response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
             'ClaimTicket': grpc.unary_unary_rpc_method_handler(
@@ -269,6 +334,16 @@ def add_CommandHandlerServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_support__bot__pb2.UserWithTicketRequest.FromString,
                     response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
+            'ClaimChat': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClaimChat,
+                    request_deserializer=proto_dot_support__bot__pb2.UserWithChatRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
+            'ClaimForChat': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClaimForChat,
+                    request_deserializer=proto_dot_support__bot__pb2.UserWithChatRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
             'ReopenTicket': grpc.unary_unary_rpc_method_handler(
                     servicer.ReopenTicket,
                     request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
@@ -277,6 +352,11 @@ def add_CommandHandlerServicer_to_server(servicer, server):
             'DeleteTicketRoom': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteTicketRoom,
                     request_deserializer=proto_dot_support__bot__pb2.TicketRequest.FromString,
+                    response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
+            ),
+            'DeleteChatRoom': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteChatRoom,
+                    request_deserializer=proto_dot_support__bot__pb2.ChatRequest.FromString,
                     response_serializer=proto_dot_support__bot__pb2.EmptyResponse.SerializeToString,
             ),
     }
@@ -307,6 +387,23 @@ class CommandHandler(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def RemoveStaffFromChat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/RemoveStaffFromChat',
+            proto_dot_support__bot__pb2.UserWithChatRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def CloseTicket(request,
             target,
             options=(),
@@ -319,6 +416,23 @@ class CommandHandler(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/CloseTicket',
             proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CloseChat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/CloseChat',
+            proto_dot_support__bot__pb2.ChatRequest.SerializeToString,
             proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -358,6 +472,40 @@ class CommandHandler(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ClaimChat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/ClaimChat',
+            proto_dot_support__bot__pb2.UserWithChatRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ClaimForChat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/ClaimForChat',
+            proto_dot_support__bot__pb2.UserWithChatRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def ReopenTicket(request,
             target,
             options=(),
@@ -387,6 +535,23 @@ class CommandHandler(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/DeleteTicketRoom',
             proto_dot_support__bot__pb2.TicketRequest.SerializeToString,
+            proto_dot_support__bot__pb2.EmptyResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteChatRoom(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/support_bot.CommandHandler/DeleteChatRoom',
+            proto_dot_support__bot__pb2.ChatRequest.SerializeToString,
             proto_dot_support__bot__pb2.EmptyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

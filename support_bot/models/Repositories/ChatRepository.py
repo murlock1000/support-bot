@@ -39,6 +39,27 @@ class ChatRepository(object):
             } for row in staff
         ]
 
+    def assign_support_to_chat(self, chat_room_id: int, support_id:str):
+        self.storage._execute("""
+            insert into ChatsSupportRelation (chat_room_id, support_id) values (?, ?);
+        """, (chat_room_id, support_id,))
+
+    def get_assigned_support(self, chat_room_id:int):
+        self.storage._execute("""
+            SELECT support_id FROM ChatsSupportRelation WHERE chat_room_id = ?;
+        """, (chat_room_id,))
+        support = self.storage.cursor.fetchall()
+        return [
+            {
+                "user_id": row[0],
+            } for row in support
+        ]
+
+    def remove_support_from_chat(self, chat_room_id: int, support_id:str):
+        self.storage._execute("""
+            DELETE FROM ChatsSupportRelation WHERE chat_room_id= ? AND support_id= ?
+        """, (chat_room_id, support_id))
+        
     def set_chat_status(self, chat_room_id:int, status:str):
         self.storage._execute("""
             UPDATE Chats SET status= ? WHERE chat_room_id=?

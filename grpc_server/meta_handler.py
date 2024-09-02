@@ -70,6 +70,18 @@ class CommandHandler(support_bot_pb2_grpc.CommandHandler):
             context.set_code(500)
             context.set_details(resp.message)
         return support_bot_pb2.EmptyResponse()
+
+    async def RemoveStaffFromChat(
+        self,
+        request: support_bot_pb2.UserWithChatRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> support_bot_pb2.EmptyResponse:
+        resp = await self.tm.remove_staff_from_chat(request.user_id, request.chat_room_id)
+        
+        if isinstance(resp, ErrorResponse):
+            context.set_code(500)
+            context.set_details(resp.message)
+        return support_bot_pb2.EmptyResponse()
     
     async def CloseTicket(
         self,
@@ -77,6 +89,18 @@ class CommandHandler(support_bot_pb2_grpc.CommandHandler):
         context: grpc.aio.ServicerContext,
     ) -> support_bot_pb2.EmptyResponse:
         resp = await self.tm.close_ticket(request.ticket_id)
+        
+        if isinstance(resp, ErrorResponse):
+            context.set_code(500)
+            context.set_details(resp.message)
+        return support_bot_pb2.EmptyResponse()
+    
+    async def CloseChat(
+        self,
+        request: support_bot_pb2.ChatRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> support_bot_pb2.EmptyResponse:
+        resp = await self.tm.close_chat(request.chat_room_id)
         
         if isinstance(resp, ErrorResponse):
             context.set_code(500)
@@ -101,6 +125,30 @@ class CommandHandler(support_bot_pb2_grpc.CommandHandler):
         context: grpc.aio.ServicerContext,
     ) -> support_bot_pb2.EmptyResponse:
         resp = await self.tm.claim_for_ticket(request.user_id, request.ticket_id)
+        
+        if isinstance(resp, ErrorResponse):
+            context.set_code(500)
+            context.set_details(resp.message)
+        return support_bot_pb2.EmptyResponse()
+    
+    async def ClaimChat(
+        self,
+        request: support_bot_pb2.UserWithChatRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> support_bot_pb2.EmptyResponse:
+        resp = await self.tm.claim_chat(request.user_id, request.chat_room_id)
+        
+        if isinstance(resp, ErrorResponse):
+            context.set_code(500)
+            context.set_details(resp.message)
+        return support_bot_pb2.EmptyResponse()
+    
+    async def ClaimForChat(
+        self,
+        request: support_bot_pb2.UserWithChatRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> support_bot_pb2.EmptyResponse:
+        resp = await self.tm.claim_for_chat(request.user_id, request.chat_room_id)
         
         if isinstance(resp, ErrorResponse):
             context.set_code(500)

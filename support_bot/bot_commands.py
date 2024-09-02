@@ -1008,6 +1008,19 @@ async def unassign_staff_from_ticket(client: AsyncClient, store: Storage, ticket
                 )
         if isinstance(resp, RoomKickError):
             logger.warning(f"Failed to kick user {user_id} from ticket ID: {ticket.id} in room {ticket.ticket_room_id}")
+
+async def unassign_staff_from_chat(client: AsyncClient, store: Storage, chat_room_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
+    chat:Chat = Chat.get_existing(store, chat_room_id)
+    if not chat:
+        return ChatNotFound(chat_room_id)
+    
+    for user_id in user_ids:
+        chat.unassign_staff(user_id)
+        resp = await kick_from_room(
+                    client, user_id, chat.chat_room_id
+                )
+        if isinstance(resp, RoomKickError):
+            logger.warning(f"Failed to kick user {user_id} from chat {chat_room_id}")
     
     
 async def claim(client: AsyncClient, store: Storage, staff_user_id: str, ticket_id:str) -> Optional[ErrorResponse]:
@@ -1038,6 +1051,35 @@ async def claim(client: AsyncClient, store: Storage, staff_user_id: str, ticket_
                 return ErrorResponse(f"Failed to share keys with user {staff_user_id} {e}", Errors.EXCEPTION)
         else:
             return ErrorResponse(f"Failed to invite {staff_user_id} to Ticket room {ticket.ticket_room_id}: {response.message}", Errors.ROOM_INVITE)
+
+async def chat_claim(client: AsyncClient, store: Storage, staff_user_id: str, chat_room_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff claim a chat.
+        """
+        # Get chat by chat room id
+        chat = Chat.get_existing(store, chat_room_id)
+
+        if not chat:
+            return ChatNotFound(chat_room_id)
+
+        # Claim Chat for the staff
+        chat.claim_chat(staff_user_id)
+
+        logger.debug(f"Inviting user {staff_user_id} to chat room {chat.chat_room_id}")
+
+        # Invite staff to Chat room
+        response = await chat.invite_to_chat_room(client, staff_user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            try:
+                resp = await send_shared_history_keys(client, chat.chat_room_id, [staff_user_id])
+                if isinstance(resp, ErrorResponse):
+                    return resp
+                logger.debug(f"Invited staff to Chat room successfully")
+            except Exception as e:
+                return ErrorResponse(f"Failed to share keys with user {staff_user_id} {e}", Errors.EXCEPTION)
+        else:
+            return ErrorResponse(f"Failed to invite {staff_user_id} to chat room {chat.chat_room_id}: {response.message}", Errors.ROOM_INVITE)
 
 async def reopen_ticket(client: AsyncClient, store: Storage, ticket_id: str, management_room_id:str) -> Optional[ErrorResponse]:
         """
@@ -1115,9 +1157,84 @@ async def claimfor(client: AsyncClient, store: Storage, user_id:str, ticket_id:s
         else:
             return ErrorResponse(f"Failed to invite {support.user_id} to Ticket room {ticket.ticket_room_id}: {response.message}", Errors.ROOM_INVITE)
 
-async def close_ticket(client: AsyncClient, store: Storage, ticket_id:str, management_room_id:str) -> Optional[ErrorResponse]:
+async def chat_claimfor(client: AsyncClient, store: Storage, user_id:str, chat_room_id:str) -> Optional[ErrorResponse]:
         """
-        Staff close the current ticket.
+        Staff claim a chat for support.
+        """
+
+        # Get ticket by id
+        chat = Chat.get_existing(store, chat_room_id)
+
+        if not chat:
+            return ChatNotFound(chat_room_id)
+        
+        support = Support.get_existing(store, user_id)
+        
+        if not support:
+            logger.info(f"Creating new support user for {user_id}.")
+            support = Support.create_new(store, user_id)
+
+        # Claim Ticket for the support user
+        chat.claimfor_ticket(support.user_id)
+
+        logger.debug(f"Inviting user {support.user_id} to chat room {chat.chat_room_id}")
+
+        # Invite support to Chat room
+        response = await chat.invite_to_chat_room(client, support.user_id)
+
+        if isinstance(response, RoomInviteResponse):
+            try:
+                resp = await send_shared_history_keys(client, chat.chat_room_id, [support.user_id])
+                if isinstance(resp, ErrorResponse):
+                    return resp
+            except Exception as e:
+                return ErrorResponse(e, Errors.EXCEPTION)
+        else:
+            return ErrorResponse(f"Failed to invite {support.user_id} to Chat room {chat.chat_room_id}: {response.message}", Errors.ROOM_INVITE)
+
+async def close_ticket(client: AsyncClient, store: Storage, ticket_id:int, management_room_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff close the current ticket of provided ticket id.
+        """
+
+        if not isinstance(ticket_id, str):
+            return ErrorResponse(f"Ticket id must be of type int", Errors.EXCEPTION)
+        
+        ticket:Ticket = Ticket.get_existing(store, ticket_id)
+        if not ticket:
+            return TicketNotFound(ticket_id)
+        else:
+            if ticket.status == TicketStatus.OPEN:
+                ticket.set_status(TicketStatus.CLOSED)
+
+                current_user_ticket_id = ticket.find_user_current_ticket_id()
+                if current_user_ticket_id == ticket.id:
+                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+
+                msg = f"Closed Ticket {ticket.id}"
+                logger.info(msg)
+                await send_text_to_room(client, ticket.ticket_room_id, msg,)
+                await send_text_to_room(client, management_room_id, msg,)
+
+                # Kick all support from the room
+                support_users = ticket.get_assigned_support()
+                for support in support_users:
+                    await kick_from_room(
+                    client, support, ticket.ticket_room_id
+                )
+                
+                # Kick staff from room after close
+                staff_users = ticket.get_assigned_staff()
+                for staff in staff_users:
+                    await kick_from_room(
+                        client, staff, ticket.ticket_room_id
+                    ) 
+            else:
+                return ErrorResponse(f"Ticket {ticket.id} is already closed", Errors.INVALID_ROOM_STATE)
+            
+async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, management_room_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff close the current ticket of provided ticket id.
         """
 
         ticket:Ticket = Ticket.get_existing(store, ticket_id)

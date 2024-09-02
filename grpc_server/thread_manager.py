@@ -4,10 +4,14 @@ from support_bot import chat_functions
 from support_bot.bot_commands import (
     Command,
     claim,
+    chat_claim,
     claimfor,
+    chat_claimfor,
     close_ticket,
+    close_chat,
     reopen_ticket,
     unassign_staff_from_ticket,
+    unassign_staff_from_chat,
     delete_ticket_room,
     delete_chat_room
 )
@@ -75,6 +79,13 @@ class ThreadManager():
             return await self.wait_for(future, self.timeout)
         except asyncio.TimeoutError:
             return ErrorResponse("Timed out while claiming ticket", Errors.ASYNC_TIMEOUT)
+        
+    async def remove_staff_from_chat(self, user_id: str, chat_room_id: str) -> Optional[ErrorResponse]:
+        future = asyncio.run_coroutine_threadsafe(unassign_staff_from_chat(self.client, self.store, chat_room_id, [user_id]), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while claiming chat", Errors.ASYNC_TIMEOUT)
     
     async def close_ticket(self, ticket_id:str) -> Optional[ErrorResponse]:
         future = asyncio.run_coroutine_threadsafe(close_ticket(self.client, self.store, ticket_id, self.config.management_room_id), self.main_loop)
@@ -82,6 +93,13 @@ class ThreadManager():
             return await self.wait_for(future, self.timeout)
         except asyncio.TimeoutError:
             return ErrorResponse("Timed out while closing ticket", Errors.ASYNC_TIMEOUT)
+        
+    async def close_chat(self, chat_room_id:str) -> Optional[ErrorResponse]:
+        future = asyncio.run_coroutine_threadsafe(close_chat(self.client, self.store, chat_room_id, self.config.management_room_id), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while closing chat", Errors.ASYNC_TIMEOUT)
     
     async def claim_ticket(self, user_id: str, ticket_id:str) -> Optional[ErrorResponse]:
         future = asyncio.run_coroutine_threadsafe(claim(self.client, self.store, user_id, ticket_id), self.main_loop)
@@ -92,6 +110,20 @@ class ThreadManager():
     
     async def claim_for_ticket(self, user_id: str, ticket_id:str) -> Optional[ErrorResponse]:
         future = asyncio.run_coroutine_threadsafe(claimfor(self.client, self.store, user_id, ticket_id), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while claiming for ticket", Errors.ASYNC_TIMEOUT)
+        
+    async def claim_chat(self, user_id: str, chat_room_id:str) -> Optional[ErrorResponse]:
+        future = asyncio.run_coroutine_threadsafe(chat_claim(self.client, self.store, user_id, chat_room_id), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while claiming chat for staff", Errors.ASYNC_TIMEOUT)
+    
+    async def claim_for_chat(self, user_id: str, chat_room_id:str) -> Optional[ErrorResponse]:
+        future = asyncio.run_coroutine_threadsafe(chat_claimfor(self.client, self.store, user_id, chat_room_id), self.main_loop)
         try:
             return await self.wait_for(future, self.timeout)
         except asyncio.TimeoutError:
