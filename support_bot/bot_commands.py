@@ -1234,7 +1234,7 @@ async def close_ticket(client: AsyncClient, store: Storage, ticket_id:int, manag
             
 async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, management_room_id:str) -> Optional[ErrorResponse]:
         """
-        Staff close the current ticket of provided ticket id.
+        Staff close the chat of provided chat room id.
         """
 
         chat:Chat = Chat.get_existing(store, chat_room_id)
@@ -1264,7 +1264,7 @@ async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, mana
                 staff_users = chat.get_assigned_staff()
                 for staff in staff_users:
                     await kick_from_room(
-                        client, staff, chat.ticket_room_id
+                        client, staff, chat.chat_room_id
                     ) 
             else:
                 return ErrorResponse(f"Chat {chat.chat_room_id} is already closed", Errors.INVALID_ROOM_STATE)
