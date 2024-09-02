@@ -27,7 +27,7 @@ from nio.events.room_events import RoomMessageText
 
 from support_bot import commands_help
 from support_bot.chat_functions import create_private_room, filtered_sync, invite_to_room, send_text_to_room, kick_from_room, \
-    find_private_msg, send_shared_history_keys
+    find_private_msg, send_shared_history_keys, delete_room
 from support_bot.config import Config
 from support_bot.errors import Errors, TicketNotFound
 from support_bot.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
@@ -703,6 +703,22 @@ class Command(object):
         await kick_from_room(
             self.client, self.event.sender, self.room.room_id
         )
+        
+        if self.room.joined_count == 1 and self.room.invited_count == 0:
+            # Delete chat room
+            response = await delete_room(self.client, self.room.room_id)
+            if isinstance(response, ErrorResponse):
+                msg = f"Failed to leave room: {response}"
+                logger.error(msg)
+                await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
+            else:
+                msg = f"Deleted Chat {self.room.room_id}."
+                logger.info(msg)
+                await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
+        else:
+            logger.info(f"Added Chat room {self.room.room_id} to marked for deletion queue.")
+            self.client.callbacks.rooms_marked_for_deletion[self.room.room_id] = self.room.room_id
+        
 
     async def _force_close_ticket(self):
         if len(self.args) < 1:
@@ -761,6 +777,14 @@ class Command(object):
             return
         
         ticket_id = self.args[0]
+        
+        if not ticket_id.isnumeric():
+            err = f"Ticket ID must be a whole number"
+            logger.warning(err)
+            await send_text_to_room(self.client, self.room.room_id, err,)
+            return
+
+        ticket_id = int(ticket_id)
         
         ticket:Ticket = Ticket.get_existing(self.store, ticket_id)
         if not ticket:
@@ -1015,26 +1039,23 @@ async def delete_ticket_room(client: AsyncClient, store: Storage, ticket_id:str,
             else:
                 return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} not found in local state", Errors.INVALID_ROOM_STATE)
             
-            if len(ticket_room.users) > 1:
-                return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} has more than one user: {', '.join(ticket_room.invited_users.keys())}", Errors.LOGIC_CHECK)
+            if ticket_room.joined_count > 1:
+                return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} has more than one user: {', '.join(ticket_room.users.keys())}", Errors.LOGIC_CHECK)
                 
-            if len(ticket_room.invited_users) != 0:
+            if ticket_room.invited_count != 0:
                 return ErrorResponse(f"Ticket {ticket.id} room {ticket.ticket_room_id} has pending invites: {', '.join(ticket_room.invited_users.keys())}", Errors.LOGIC_CHECK)
 
-            response = await client.room_leave(ticket.ticket_room_id)
-            if isinstance(response, RoomLeaveError):
+            response = await delete_room(client, ticket.ticket_room_id)
+            if isinstance(response, ErrorResponse):
                 logger.error(f"Failed to leave room: {response}")
-                return ErrorResponse(f"Failed to leave ticket {ticket.id} room {ticket.ticket_room_id}: {response}", Errors.EXCEPTION)
-        
-            response = await client.room_forget(ticket.ticket_room_id)
-            if isinstance(response, RoomForgetError):
-                logger.error(f"Failed to forget room: {response}")
+                return response
+            else:
+                ticket.set_status(TicketStatus.DELETED)
 
-            ticket.set_status(TicketStatus.DELETED)
-                
-            msg = f"Deleted Ticket {ticket.id} room {ticket.ticket_room_id}"
-            logger.info(msg)
-            await send_text_to_room(client, management_room_id, msg,)
+                msg = f"Deleted Ticket {ticket.id} room {ticket.ticket_room_id}"
+                logger.info(msg)
+                await send_text_to_room(client, management_room_id, msg,)
+    
 
 async def unassign_support_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
         ticket:Ticket = Ticket.get_existing(store, ticket_id)

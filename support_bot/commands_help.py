@@ -102,5 +102,5 @@ COMMAND_DELETE_ROOM_STATE = """Deletes local state of the provided room id. Usag
 """
 
 COMMAND_DELETE_TICKET_ROOM = """Marks ticket room for deletion and leaves the room of the provided ticket id. Usage:
-`!c _deleteticketroom <room id>`
+`!c _deleteticketroom <ticket id>`
 """

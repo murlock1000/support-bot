@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Union, Dict, Iterator
 from commonmark import commonmark
 # noinspection PyPackageRequirements
 from nio import (
+    ErrorResponse,
     SendRetryError,
     RoomSendResponse,
     RoomSendError,
@@ -15,11 +16,13 @@ from nio import (
     RoomPreset,
     RoomVisibility,
     RoomInviteError,
-    RoomInviteResponse, RoomKickResponse, RoomKickError, MatrixRoom, RoomAvatarEvent, ProfileGetAvatarResponse, DownloadResponse,
+    RoomInviteResponse, RoomKickResponse, RoomKickError,
+    MatrixRoom, RoomAvatarEvent, ProfileGetAvatarResponse,
+    DownloadResponse, RoomLeaveError, RoomForgetError,
     ToDeviceMessage, SyncError, SyncResponse, Api
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
-from support_bot.errors import RoomNotEncrypted, RoomNotFound
+from support_bot.errors import RoomNotEncrypted, RoomNotFound, Errors
 #from support_bot.models.Ticket import Ticket
 
 #from support_bot.config import Config
@@ -299,6 +302,27 @@ async def invite_to_room(
             logger.exception(f"Failed to invite user {mxid} to room {room_id} with error: {resp.status_code}")
         return resp
 
+async def delete_room(client: AsyncClient, room_id:str) -> Optional[ErrorResponse]:
+    if room_id in client.rooms:
+        room:MatrixRoom = client.rooms[room_id]
+    else:
+        return ErrorResponse(f"Room {room_id} not found in local state", Errors.INVALID_ROOM_STATE)
+    
+    if room.joined_count > 1:
+        return ErrorResponse(f"Room {room_id} has more than one user: {', '.join(room.users.keys())}", Errors.LOGIC_CHECK)
+        
+    if room.invited_count != 0:
+        return ErrorResponse(f"Room {room_id} has pending invites: {', '.join(room.invited_users.keys())}", Errors.LOGIC_CHECK)
+    
+    response = await client.room_leave(room_id)
+    if isinstance(response, RoomLeaveError):
+        logger.error(f"Failed to leave room: {response}")
+        return ErrorResponse(f"Failed to leave Room {room_id}: {response}", Errors.EXCEPTION)
+
+    response = await client.room_forget(room_id)
+    if isinstance(response, RoomForgetError):
+        logger.error(f"Failed to forget room: {response}")
+        
 async def filtered_sync(
         client: AsyncClient,
         timeout: Optional[int] = 0,

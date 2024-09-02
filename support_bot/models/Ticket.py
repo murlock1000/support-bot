@@ -39,6 +39,9 @@ class Ticket(object):
     @staticmethod
     def get_existing(storage: Storage, ticket_id: int):
         # Check cache first
+        if not isinstance(ticket_id, int):
+            return None
+        
         ticket = Ticket.ticket_cache.get(ticket_id, None)
         if ticket:
             return ticket

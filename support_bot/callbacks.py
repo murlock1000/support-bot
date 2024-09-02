@@ -13,7 +13,7 @@ from nio import (
 
 from support_bot.bot_commands import Command
 from support_bot.call_event_message_responses import CallEventMessage
-from support_bot.chat_functions import send_text_to_room, send_shared_history_keys
+from support_bot.chat_functions import send_text_to_room, send_shared_history_keys, delete_room
 from support_bot.config import Config
 from support_bot.media_responses import Media
 from support_bot.message_responses import TextMessage
@@ -49,6 +49,7 @@ class Callbacks(object):
         self.received_events = []
         self.welcome_message_sent_to_room = []
         self.rooms_pending = defaultdict(list)
+        self.rooms_marked_for_deletion = {}
 
     async def decrypted_callback(self, room_id: str, event: RoomMessageText):
         if isinstance(event, RoomMessageText):
@@ -138,6 +139,8 @@ class Callbacks(object):
                     logger.info(f"User {user.user_id} left the primary communications channel room {room.room_id}. /"
                                 f"Unable to send messages to user until communications room is recreated.")
                     user.update_communications_room(None)
+            await self.check_marked_deletion()
+            
         elif event.membership == 'join':
             support = Support.get_existing(self.store, event.sender)
             if not support:
@@ -225,6 +228,32 @@ class Callbacks(object):
                 f"I have received join event in room {room.display_name} (`{room.room_id}`).",
                 True,
             )
+
+    async def check_marked_deletion(self) -> None:
+        to_delete = []
+        for room_id in self.rooms_marked_for_deletion.keys():
+            room = self.client.rooms.get(room_id, None)
+            if room:
+                if room.invited_count == 0 and room.joined_count == 1:
+                    response = await delete_room(self.client, room.room_id)
+                    if isinstance(response, ErrorResponse):
+                        msg = f"Failed to leave Chat room: {response}"
+                        logger.error(msg)
+                        await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
+                    else:
+                        msg = f"Deleted Chat {room.room_id}."
+                        logger.info(msg)
+                        await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
+                    to_delete.append(room_id)
+                else:
+                    logger.info(f"Chat room {room.room_id} still contains users in room, not deleting.")
+            else:
+                msg = f"Chat room {room.room_id} not found in local state, not deleting."
+                logger.error(msg)
+                await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
+        for room_id in to_delete:
+            del self.rooms_marked_for_deletion[room_id]
+
 
     async def check_awaited(self, response) -> None:
         to_delete = []
