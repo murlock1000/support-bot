@@ -1237,37 +1237,37 @@ async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, mana
         Staff close the current ticket of provided ticket id.
         """
 
-        ticket:Ticket = Ticket.get_existing(store, ticket_id)
-        if not ticket:
-            return TicketNotFound(ticket_id)
+        chat:Chat = Chat.get_existing(store, chat_room_id)
+        if not chat:
+            return ChatNotFound(chat_room_id)
         else:
-            if ticket.status == TicketStatus.OPEN:
-                ticket.set_status(TicketStatus.CLOSED)
+            if chat.status == ChatStatus.OPEN:
+                chat.set_status(ChatStatus.CLOSED)
 
-                current_user_ticket_id = ticket.find_user_current_ticket_id()
-                if current_user_ticket_id == ticket.id:
-                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
+                current_user_chat_room_id = chat.find_user_current_chat_room_id()
+                if current_user_chat_room_id == chat.chat_room_id:
+                    chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
 
-                msg = f"Closed Ticket {ticket.id}"
+                msg = f"Closed Chat {chat.chat_room_id}"
                 logger.info(msg)
-                await send_text_to_room(client, ticket.ticket_room_id, msg,)
+                await send_text_to_room(client, chat.chat_room_id, msg,)
                 await send_text_to_room(client, management_room_id, msg,)
 
                 # Kick all support from the room
-                support_users = ticket.get_assigned_support()
+                support_users = chat.get_assigned_support()
                 for support in support_users:
                     await kick_from_room(
-                    client, support, ticket.ticket_room_id
+                    client, support, chat.chat_room_id
                 )
                 
                 # Kick staff from room after close
-                staff_users = ticket.get_assigned_staff()
+                staff_users = chat.get_assigned_staff()
                 for staff in staff_users:
                     await kick_from_room(
-                        client, staff, ticket.ticket_room_id
+                        client, staff, chat.ticket_room_id
                     ) 
             else:
-                return ErrorResponse(f"Ticket {ticket.id} is already closed", Errors.INVALID_ROOM_STATE)
+                return ErrorResponse(f"Chat {chat.chat_room_id} is already closed", Errors.INVALID_ROOM_STATE)
 
 async def delete_ticket_room(client: AsyncClient, store: Storage, ticket_id:str, management_room_id:str) -> Optional[ErrorResponse]:
         """
