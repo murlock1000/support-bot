@@ -6,6 +6,7 @@ class Errors(Enum):
     NIO_ERROR = "NIO_ERROR"
     ROOM_INVITE = "ROOM_INVITE"
     UNKNOWN_TICKET = "UNKNOWN_TICKET"
+    UNKNOWN_CHAT = "UNKNOWN CHAT"
     UNKNOWN_ROOM = "UNKNOWN_ROOM"
     INVALID_ROOM_STATE = "INVALID_ROOM_STATE"
     ASYNC_TIMEOUT = "ASYNC_TIMEOUT"
@@ -15,7 +16,11 @@ class Errors(Enum):
 class TicketNotFound(ErrorResponse):
     def __init__(self, ticket_id):
         super(TicketNotFound, self).__init__(f"Ticket with ID {ticket_id} was not found.", Errors.UNKNOWN_TICKET)
-        
+
+class ChatNotFound(ErrorResponse):
+    def __init__(self, chat_room_id):
+        super(TicketNotFound, self).__init__(f"Chat with chat ID {chat_room_id} was not found.", Errors.UNKNOWN_CHAT)
+
 class RoomNotFound(ErrorResponse):
     def __init__(self, room_id):
         super(TicketNotFound, self).__init__(f"Room with ID {room_id} was not found.", Errors.UNKNOWN_ROOM)

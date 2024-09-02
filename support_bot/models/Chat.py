@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import List
 from nio import AsyncClient, RoomCreateResponse, RoomInviteResponse, MatrixRoom, Response, RoomCreateError
 
 from support_bot.chat_functions import invite_to_room, create_room, send_text_to_room
-from support_bot.models.Repositories.ChatRepository import ChatRepository
+from support_bot.models.Repositories.ChatRepository import ChatRepository, ChatStatus
 from support_bot.models.Repositories.UserRepository import UserRepository
 from support_bot.storage import Storage
 import logging
@@ -28,6 +29,9 @@ class Chat(object):
 
         self.chat_room_id =     fields['chat_room_id']
         self.user_id =          fields['user_id']
+        self.status =           ChatStatus(fields['status'])
+        self.created_at =       fields['created_at']
+        self.closed_at =        fields['closed_at']
 
     @staticmethod
     def get_existing(storage: Storage, chat_room_id: str):
@@ -49,7 +53,7 @@ class Chat(object):
     @staticmethod
     async def create_new(storage: Storage, client:AsyncClient, user_id:str):
         # Create chat room
-
+        created_at = datetime.now()
         response = await Chat.create_chat_room(client, user_id)
 
         if isinstance(response, RoomCreateError):
@@ -59,7 +63,7 @@ class Chat(object):
 
         # Create Chat entry
         try:
-            storage.repositories.chatRep.create_chat(user_id, chat_room_id)
+            storage.repositories.chatRep.create_chat(user_id, chat_room_id, created_at)
         except Exception as e:
             return e
 
@@ -118,6 +122,32 @@ class Chat(object):
 
         # Assign staff member to the chat
         self.chatRep.assign_staff_to_chat(self.chat_room_id, staff_id)
+        
+    def _close_chat(self):
+        self.chatRep.set_chat_closed_at(self.chat_room_id, datetime.now())
+        
+        # Remove from cache if closing chat
+        if Chat.chat_cache.get(self.chat_room_id):
+            Chat.chat_cache.pop(self.chat_room_id)
+    
+    def _open_chat(self):
+        self.chatRep.set_chat_closed_at(self.chat_room_id, None)
+        
+        # Remove from cache if closing chat
+        if Chat.chat_cache.get(self.chat_room_id):
+            Chat.chat_cache.pop(self.chat_room_id)
+            
+    def set_status(self, status:ChatStatus):
+        self.chatRep.set_chat_status(self.chat_room_id, status.value)
+        self.status = status
+
+        if status == ChatStatus.CLOSED:
+            self._close_chat()
+        elif status == ChatStatus.OPEN:
+            self._open_chat()
+        elif status == ChatStatus.DELETED:
+            if Chat.chat_cache.get(self.chat_room_id):
+                Chat.chat_cache.pop(self.chat_room_id)
 
     def find_user_current_chat_room_id(self):
         return self.userRep.get_user_current_chat_room_id(self.user_id)

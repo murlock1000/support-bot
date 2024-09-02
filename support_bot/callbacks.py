@@ -18,6 +18,7 @@ from support_bot.config import Config
 from support_bot.media_responses import Media
 from support_bot.message_responses import TextMessage
 from support_bot.models.Repositories.TicketRepository import TicketStatus
+from support_bot.models.Repositories.ChatRepository import ChatStatus
 from support_bot.models.Staff import Staff
 from support_bot.redact_responses import RedactMessage
 from support_bot.storage import Storage
@@ -25,6 +26,7 @@ from support_bot.models.Support import Support
 from support_bot.utils import with_ratelimit
 
 from support_bot.models.Ticket import Ticket, ticket_name_pattern
+from support_bot.models.Chat import Chat
 from support_bot.models.User import User
 
 logger = logging.getLogger(__name__)
@@ -241,6 +243,9 @@ class Callbacks(object):
                         logger.error(msg)
                         await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
                     else:
+                        chat:Chat = Chat.get_existing(self.store, room.room_id)
+                        chat.set_status(ChatStatus.DELETED)
+                        
                         msg = f"Deleted Chat {room.room_id}."
                         logger.info(msg)
                         await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)

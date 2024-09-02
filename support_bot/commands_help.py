@@ -57,7 +57,16 @@ If Ticket ID provided - reopens the specified Ticket and invites the staff to th
 
 COMMAND_OPEN_TICKETS = """Lists all currently open tickets, or open tickets that are assigned to a specified staff member. Usage:
 
-`!c opentickets <user id>`
+`!c opentickets <staff user id>`
+or
+`!c opentickets`
+"""
+
+COMMAND_OPEN_CHATS = """Lists all currently open chats, or open chats that are assigned to a specified staff member. Usage:
+
+`!c openchats <staff user id>`
+or
+`!c openchats`
 """
 
 COMMAND_SETUP_COMMUNICATIONS_ROOM = """Updates the user's communications room (DM between user and bot). 
@@ -97,10 +106,18 @@ COMMAND_FORCE_CLOSE_TICKET = """Closes the ticket that has the provided id. Usag
 `!c forcecloseticket <ticket id>`
 """
 
+COMMAND_FORCE_CLOSE_CHAT = """Closes the chat that has the provided chat room id. Usage:
+`!c forceclosechat <chat room id>`
+"""
+
 COMMAND_DELETE_ROOM_STATE = """Deletes local state of the provided room id. Usage:
 `!c _deleteroomstate <room id>`
 """
 
-COMMAND_DELETE_TICKET_ROOM = """Marks ticket room for deletion and leaves the room of the provided ticket id. Usage:
+COMMAND_DELETE_TICKET_ROOM = """Leaves and marks ticket room for deletion with the provided ticket id. Usage:
 `!c _deleteticketroom <ticket id>`
+"""
+
+COMMAND_DELETE_CHAT_ROOM = """Leaves and marks chat room for deletion with of the provided chat room id. Usage:
+`!c _deletechatroom <chat room id>`
 """

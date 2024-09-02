@@ -29,12 +29,13 @@ from support_bot import commands_help
 from support_bot.chat_functions import create_private_room, filtered_sync, invite_to_room, send_text_to_room, kick_from_room, \
     find_private_msg, send_shared_history_keys, delete_room
 from support_bot.config import Config
-from support_bot.errors import Errors, TicketNotFound
+from support_bot.errors import Errors, TicketNotFound, ChatNotFound
 from support_bot.handlers.EventStateHandler import EventStateHandler, LogLevel, RoomType
 from support_bot.handlers.MessagingHandler import MessagingHandler
 from support_bot.models.Chat import Chat
 from support_bot.models.EventPairs import EventPair
 from support_bot.models.IncomingEvent import IncomingEvent
+from support_bot.models.Repositories.ChatRepository import ChatStatus, ChatRepository
 from support_bot.models.Repositories.TicketRepository import TicketStatus, TicketRepository
 from support_bot.models.Staff import Staff
 from support_bot.models.Support import Support
@@ -101,10 +102,14 @@ class Command(object):
             await self._close_room()
         elif self.command.startswith("forcecloseticket"):
             await self._force_close_ticket()
+        elif self.command.startswith("forceclosechat"):
+            await self._force_close_chat()
         elif self.command.startswith("reopen"):
             await self._reopen_ticket()
         elif self.command.startswith("opentickets"):
             await self._open_tickets()
+        elif self.command.startswith("openchats"):
+            await self._open_chats()
         elif self.command.startswith("activeticket"):
             await self._show_active_user_ticket()
         elif self.command.startswith("addstaff"):
@@ -119,6 +124,8 @@ class Command(object):
             await self.__delete_room_state()
         elif self.command.startswith("_deleteticketroom"):
             await self.__delete_ticket_room()
+        elif self.command.startswith("_deletechatroom"):
+            await self.__delete_chat_room()
         elif self.command.startswith("messageroom"):
             await self._message_room()
         elif self.command.startswith("chat"):
@@ -166,6 +173,7 @@ class Command(object):
             "close":commands_help.COMMAND_CLOSE,
             "reopen":commands_help.COMMAND_REOPEN,
             "opentickets":commands_help.COMMAND_OPEN_TICKETS,
+            "openchats":commands_help.COMMAND_OPEN_CHATS,
             "activeticket":commands_help.COMMAND_ACTIVE_TICKET,
             "addstaff":commands_help.COMMAND_ADD_STAFF,
             "setupcommunicationsroom":commands_help.COMMAND_SETUP_COMMUNICATIONS_ROOM,
@@ -174,7 +182,9 @@ class Command(object):
             "messageroom":commands_help.COMMAND_MESSAGE_ROOM,
             "chat":commands_help.COMMAND_CHAT,
             "forcecloseticket": commands_help.COMMAND_FORCE_CLOSE_TICKET,
+            "forceclosechat": commands_help.COMMAND_FORCE_CLOSE_CHAT,
             "deleteticketroom": commands_help.COMMAND_DELETE_TICKET_ROOM,
+            "deletechatroom": commands_help.COMMAND_DELETE_CHAT_ROOM,
         }
         help_messages["commands"] = ", ".join(list(help_messages.keys()))
         topic = self.args[0]
@@ -235,6 +245,32 @@ class Command(object):
         error_message = response if type(response == str) else getattr(response, "message", "Unknown error")
         await send_text_to_room(
             self.client, self.room.room_id, f"Failed to deliver message to {room}! Error: {error_message}",
+        )
+
+    async def _open_chats(self):
+        """
+        No args - List all open chats
+        Arg provided - List all open chats assigned to staff member
+        """
+        chat_rep: ChatRepository = self.store.repositories.chatRep
+
+        if len(self.args) == 1:
+            staff = Staff.get_existing(self.store, self.args[0])
+            if not staff:
+                await send_text_to_room(
+                    self.client, self.room.room_id, f"{self.args[0]} is not a staff member.",
+                )
+                return
+            open_chats = chat_rep.get_open_chats_of_staff(staff.user_id)
+        else:
+            open_chats = chat_rep.get_open_chats()
+
+        # Construct response array
+        resp = [f"<p>{chat['chat_room_id']} - {chat['user_id']}</p>" for chat in open_chats]
+        resp = "".join(resp)
+
+        await send_text_to_room(
+            self.client, self.room.room_id, f"Open chats: \n{resp}",
         )
 
     async def _open_tickets(self):
@@ -694,7 +730,9 @@ class Command(object):
         if current_user_chat_room_id == chat.chat_room_id:
             chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
 
+        chat.set_status(ChatStatus.CLOSED)
         msg = f"Closed Chat {chat.chat_room_id}"
+        
         logger.info(msg)
         await send_text_to_room(self.client, self.room.room_id, msg,)
         if self.room.room_id != self.config.management_room_id:
@@ -712,6 +750,7 @@ class Command(object):
                 logger.error(msg)
                 await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
             else:
+                chat.set_status(ChatStatus.DELETED)
                 msg = f"Deleted Chat {self.room.room_id}."
                 logger.info(msg)
                 await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
@@ -726,7 +765,14 @@ class Command(object):
             return
         
         ticket_id = self.args[0]
-        
+        if not ticket_id.isnumeric():
+            err = f"Ticket ID must be a whole number"
+            logger.warning(err)
+            await send_text_to_room(self.client, self.room.room_id, err,)
+            return
+
+        ticket_id = int(ticket_id)
+            
         ticket:Ticket = Ticket.get_existing(self.store, ticket_id)
         if not ticket:
             msg = f"Could not find Ticket with ticket id {ticket_id} to forcefully close"
@@ -749,6 +795,38 @@ class Command(object):
                     
             else:
                 msg = f"Ticket {ticket.id} is already closed"
+                logger.info(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg,)
+
+    async def _force_close_chat(self):
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_FORCE_CLOSE_CHAT)
+            return
+        
+        chat_room_id = self.args[0]
+        
+        chat:Chat = Chat.get_existing(self.store, chat_room_id)
+        if not chat:
+            msg = f"Could not find Chat with chat room id {chat_room_id} to forcefully close"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+        else:
+            if chat.status == ChatStatus.OPEN:
+                chat.set_status(ChatStatus.CLOSED)
+
+                current_user_chat_room_id = chat.find_user_current_chat_room_id()
+                if current_user_chat_room_id == chat.chat_room_id:
+                    chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
+
+                msg = f"Forcefully closed Chat {chat.chat_room_id}"
+                logger.info(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg,)
+                if self.room.room_id != self.config.management_room_id:
+                    await send_text_to_room(self.client, self.config.management_room_id, msg,)
+                    
+            else:
+                msg = f"Chat {chat.chat_room_id} is already closed"
                 logger.info(msg)
                 await send_text_to_room(self.client, self.room.room_id, msg,)
 
@@ -796,7 +874,62 @@ class Command(object):
             resp = await delete_ticket_room(self.client, self.store, ticket_id, self.config.matrix_logging_room)
             if isinstance(resp, ErrorResponse):
                 await send_text_to_room(self.client, self.room.room_id, f"Failed to delete Ticket: {resp.message}")
+
+    async def __delete_chat_room(self) -> None:
+        """
+        Staff delete chat room by room id.
+        """
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_DELETE_CHAT_ROOM)
+            return
+        
+        room_id = self.args[0]
+        chat_room_id = Chat.get_chat_room_id_from_room_id(self.store, room_id)
+        
+        if not chat_room_id:
+            msg = f"Chat with room id {room_id} does not exist"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+            
+        chat:Chat = Chat.get_existing(self.store, chat_room_id)
+        if not chat:
+            msg = f"Could not find Chat with chat room id {chat_room_id} to delete room of"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+        else:
+            resp = await delete_chat_room(self.client, self.store, chat_room_id, self.config.matrix_logging_room)
+            if isinstance(resp, ErrorResponse):
+                await send_text_to_room(self.client, self.room.room_id, f"Failed to delete Chat: {resp.message}")
     
+    async def __delete_user_room(self) -> None:
+        """
+        Staff delete user room by room id.
+        """
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_DELETE_USER_ROOM)
+            return
+        
+        room_id = self.args[0]
+        
+        chat_room_id = Chat.get_chat_room_id_from_room_id(self.store, room_id)
+        ticket_id = Ticket.get_ticket_id_from_room_id(self.store, room_id)
+        
+        if not chat_room_id and not ticket_id:
+            msg = f"Room is neither a  not find Ticket with ticket id {ticket_id} to delete room of"
+        ticket:Ticket = Ticket.get_existing(self.store, ticket_id)
+        if not ticket:
+            msg = f"Could not find Ticket with ticket id {ticket_id} to delete room of"
+            logger.warning(msg)
+            await send_text_to_room(
+                self.client, self.room.room_id, msg,)
+        else:
+            resp = await delete_ticket_room(self.client, self.store, ticket_id, self.config.matrix_logging_room)
+            if isinstance(resp, ErrorResponse):
+                await send_text_to_room(self.client, self.room.room_id, f"Failed to delete Ticket: {resp.message}")
+
+
     async def _reopen_ticket(self) -> None:
         """
         Staff reopen the current ticket, or specify and be reinvited to it.
@@ -1056,6 +1189,39 @@ async def delete_ticket_room(client: AsyncClient, store: Storage, ticket_id:str,
                 logger.info(msg)
                 await send_text_to_room(client, management_room_id, msg,)
     
+async def delete_chat_room(client: AsyncClient, store: Storage, chat_room_id:str, management_room_id:str) -> Optional[ErrorResponse]:
+        """
+        Staff delete the Chat room.
+        """
+
+        chat:Chat = Chat.get_existing(store, chat_room_id)
+        if not chat:
+            return ChatNotFound(ticket_id)
+        else:
+            current_user_chat_room_id = chat.find_user_current_chat_room_id()
+
+        if current_user_chat_room_id == chat.chat_room_id:
+            return ErrorResponse(f"Chat room {chat.chat_room_id} still assigned to chat user {chat.user_id}", Errors.LOGIC_CHECK)
+        
+        if chat.chat_room_id in client.rooms:
+            chat_room:MatrixRoom = client.rooms[chat.chat_room_id]
+        else:
+            return ErrorResponse(f"Chat {chat.chat_room_id} room not found in local state", Errors.INVALID_ROOM_STATE)
+        
+        if chat_room.joined_count > 1:
+            return ErrorResponse(f"Chat {chat.chat_room_id} room has more than one user: {', '.join(chat_room.users.keys())}", Errors.LOGIC_CHECK)
+            
+        if chat_room.invited_count != 0:
+            return ErrorResponse(f"Chat {chat.chat_room_id} room has pending invites: {', '.join(chat_room.invited_users.keys())}", Errors.LOGIC_CHECK)
+        
+        response = await delete_room(client, chat_room.room_id)
+        if isinstance(response, ErrorResponse):
+            logger.error(f"Failed to leave room: {response}")
+            return response
+        else:
+            msg = f"Deleted Chat {chat_room_id} room"
+            logger.info(msg)
+            await send_text_to_room(client, management_room_id, msg,)
 
 async def unassign_support_from_ticket(client: AsyncClient, store: Storage, ticket_id: str, user_ids: [str]) -> Optional[ErrorResponse]:
         ticket:Ticket = Ticket.get_existing(store, ticket_id)

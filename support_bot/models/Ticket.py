@@ -193,6 +193,9 @@ class Ticket(object):
             self._close_ticket()
         elif status == TicketStatus.OPEN:
             self._open_ticket()
+        elif status == TicketStatus.DELETED:
+            if Ticket.ticket_cache.get(self.id):
+                Ticket.ticket_cache.pop(self.id)
 
     def find_user_current_ticket_id(self):
         return self.userRep.get_user_current_ticket_id(self.user_id)

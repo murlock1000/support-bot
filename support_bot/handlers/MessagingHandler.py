@@ -3,6 +3,7 @@ import logging
 
 from nio import RoomCreateResponse, RoomCreateError, SyncResponse, SyncError
 
+from support_bot.models.Repositories.ChatRepository import ChatStatus
 from support_bot.models.Repositories.TicketRepository import TicketStatus
 from support_bot.utils import get_username
 
@@ -104,6 +105,12 @@ class MessagingHandler(object):
             await self.handler.message_room(msg, LogLevel.ERROR)
             return False
 
+        # Check if chat is not closed
+        if self.handler.chat.status == ChatStatus.CLOSED:
+            msg = f"Skipping message, since Chat is closed. You must recreate chat"
+            await self.handler.message_room(msg, LogLevel.DEBUG)
+            return False
+        
         # Find user related to chat
         self.handler.update_state_user(self.handler.chat.user_id)
 
