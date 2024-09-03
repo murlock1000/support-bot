@@ -112,6 +112,8 @@ class Command(object):
             await self._open_chats()
         elif self.command.startswith("activeticket"):
             await self._show_active_user_ticket()
+        elif self.command.startswith("activechat"):
+            await self._show_active_user_chat()
         elif self.command.startswith("addstaff"):
             await self._add_staff()
         elif self.command.startswith("setupcommunicationsroom"):
@@ -319,6 +321,28 @@ class Command(object):
 
         await send_text_to_room(
             self.client, self.room.room_id, f"{user.current_ticket_id}",
+        )
+
+    async def _show_active_user_chat(self):
+        """
+        Print active chat of user
+        """
+
+        if len(self.args) < 1:
+            await send_text_to_room(self.client, self.room.room_id, commands_help.COMMAND_ACTIVE_CHAT)
+            return
+
+        user_id = self.args[0]
+
+        user = User.get_existing(self.store, user_id)
+        if not user:
+            await send_text_to_room(
+                self.client, self.room.room_id, f"User with ID {user_id} does not exist in DB",
+            )
+            return
+
+        await send_text_to_room(
+            self.client, self.room.room_id, f"{user.current_chat_room_id}",
         )
 
     async def _add_staff(self):
@@ -725,38 +749,8 @@ class Command(object):
             await send_text_to_room(
                 self.client, self.room.room_id, msg,)
             return
-        current_user_chat_room_id = chat.find_user_current_chat_room_id()
-
-        if current_user_chat_room_id == chat.chat_room_id:
-            chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
-
-        chat.set_status(ChatStatus.CLOSED)
-        msg = f"Closed Chat {chat.chat_room_id}"
         
-        logger.info(msg)
-        await send_text_to_room(self.client, self.room.room_id, msg,)
-        if self.room.room_id != self.config.management_room_id:
-            await send_text_to_room(self.client, self.config.management_room_id, msg,)
-        # Kick staff from room after close
-        await kick_from_room(
-            self.client, self.event.sender, self.room.room_id
-        )
-        
-        if self.room.joined_count == 1 and self.room.invited_count == 0:
-            # Delete chat room
-            response = await delete_room(self.client, self.room.room_id)
-            if isinstance(response, ErrorResponse):
-                msg = f"Failed to leave room: {response}"
-                logger.error(msg)
-                await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
-            else:
-                chat.set_status(ChatStatus.DELETED)
-                msg = f"Deleted Chat {self.room.room_id}."
-                logger.info(msg)
-                await send_text_to_room(self.client, self.config.matrix_logging_room, msg,)
-        else:
-            logger.info(f"Added Chat room {self.room.room_id} to marked for deletion queue.")
-            self.client.callbacks.rooms_marked_for_deletion[self.room.room_id] = self.room.room_id
+        await close_chat(self.client, self.store, chat.chat_room_id, self.config.matrix_logging_room)
         
 
     async def _force_close_ticket(self):
@@ -812,23 +806,7 @@ class Command(object):
             await send_text_to_room(
                 self.client, self.room.room_id, msg,)
         else:
-            if chat.status == ChatStatus.OPEN:
-                chat.set_status(ChatStatus.CLOSED)
-
-                current_user_chat_room_id = chat.find_user_current_chat_room_id()
-                if current_user_chat_room_id == chat.chat_room_id:
-                    chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
-
-                msg = f"Forcefully closed Chat {chat.chat_room_id}"
-                logger.info(msg)
-                await send_text_to_room(self.client, self.room.room_id, msg,)
-                if self.room.room_id != self.config.management_room_id:
-                    await send_text_to_room(self.client, self.config.management_room_id, msg,)
-                    
-            else:
-                msg = f"Chat {chat.chat_room_id} is already closed"
-                logger.info(msg)
-                await send_text_to_room(self.client, self.room.room_id, msg,)
+            await close_chat(self.client, self.store, chat.chat_room_id, self.config.matrix_logging_room)
 
     async def _close_ticket(self) -> None:
         """
@@ -1197,7 +1175,7 @@ async def close_ticket(client: AsyncClient, store: Storage, ticket_id:int, manag
         Staff close the current ticket of provided ticket id.
         """
 
-        if not isinstance(ticket_id, str):
+        if not isinstance(ticket_id, int):
             return ErrorResponse(f"Ticket id must be of type int", Errors.EXCEPTION)
         
         ticket:Ticket = Ticket.get_existing(store, ticket_id)
@@ -1242,12 +1220,11 @@ async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, mana
             return ChatNotFound(chat_room_id)
         else:
             if chat.status == ChatStatus.OPEN:
-                chat.set_status(ChatStatus.CLOSED)
-
                 current_user_chat_room_id = chat.find_user_current_chat_room_id()
                 if current_user_chat_room_id == chat.chat_room_id:
                     chat.userRep.set_user_current_chat_room_id(chat.user_id, None)
 
+                chat.set_status(ChatStatus.CLOSED)
                 msg = f"Closed Chat {chat.chat_room_id}"
                 logger.info(msg)
                 await send_text_to_room(client, chat.chat_room_id, msg,)
@@ -1266,6 +1243,27 @@ async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, mana
                     await kick_from_room(
                         client, staff, chat.chat_room_id
                     ) 
+                    
+                # Auto-delete room after close.
+                room:MatrixRoom = client.rooms.get(chat.chat_room_id, None)
+                if not room:
+                    return ErrorResponse(f"Chat {chat.chat_room_id} not found in local state, delete the room manually.", Errors.INVALID_ROOM_STATE)
+                    
+                if room.joined_count == 1 and room.invited_count == 0:
+                    # Delete chat room
+                    response = await delete_room(client, room.room_id)
+                    if isinstance(response, ErrorResponse):
+                        msg = f"Failed to leave room: {response}"
+                        logger.error(msg)
+                        await send_text_to_room(client, management_room_id, msg,)
+                    else:
+                        chat.set_status(ChatStatus.DELETED)
+                        msg = f"Deleted Chat {room.room_id}."
+                        logger.info(msg)
+                        await send_text_to_room(client, management_room_id, msg,)
+                else:
+                    logger.info(f"Added Chat room {room.room_id} to marked for deletion queue.")
+                    client.callbacks.rooms_marked_for_deletion[room.room_id] = room.room_id
             else:
                 return ErrorResponse(f"Chat {chat.chat_room_id} is already closed", Errors.INVALID_ROOM_STATE)
 
@@ -1336,6 +1334,7 @@ async def delete_chat_room(client: AsyncClient, store: Storage, chat_room_id:str
             logger.error(f"Failed to leave room: {response}")
             return response
         else:
+            chat.set_status(ChatStatus.DELETED)
             msg = f"Deleted Chat {chat_room_id} room"
             logger.info(msg)
             await send_text_to_room(client, management_room_id, msg,)

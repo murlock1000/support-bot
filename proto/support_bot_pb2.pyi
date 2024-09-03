@@ -35,8 +35,8 @@ class UserWithTicketRequest(_message.Message):
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     TICKET_ID_FIELD_NUMBER: _ClassVar[int]
     user_id: str
-    ticket_id: str
-    def __init__(self, user_id: _Optional[str] = ..., ticket_id: _Optional[str] = ...) -> None: ...
+    ticket_id: int
+    def __init__(self, user_id: _Optional[str] = ..., ticket_id: _Optional[int] = ...) -> None: ...
 
 class UserWithChatRequest(_message.Message):
     __slots__ = ("user_id", "chat_room_id")
@@ -49,8 +49,8 @@ class UserWithChatRequest(_message.Message):
 class TicketRequest(_message.Message):
     __slots__ = ("ticket_id",)
     TICKET_ID_FIELD_NUMBER: _ClassVar[int]
-    ticket_id: str
-    def __init__(self, ticket_id: _Optional[str] = ...) -> None: ...
+    ticket_id: int
+    def __init__(self, ticket_id: _Optional[int] = ...) -> None: ...
 
 class ChatRequest(_message.Message):
     __slots__ = ("chat_room_id",)

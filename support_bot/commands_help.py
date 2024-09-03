@@ -44,6 +44,11 @@ COMMAND_ACTIVE_TICKET = """Get active ticket of specified user (the ticket user'
 `!c activeticket <user id>`
 """
 
+COMMAND_ACTIVE_CHAT = """Get active chat of specified user (the chat user's messages are being sent to). Usage:
+
+`!c activechat <user id>`
+"""
+
 COMMAND_CLOSE = """Closes the ticket that belongs to the current room (no longer transmits communications to the ticket room). Usage:
 (In a Ticket room)
 `!c close`

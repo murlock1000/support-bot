@@ -50,7 +50,7 @@ service CommandHandler {
 
 message UserWithTicketRequest {
   string user_id = 1;
-  string ticket_id = 2;
+  int32 ticket_id = 2;
 }
 
 message UserWithChatRequest {
@@ -59,7 +59,7 @@ message UserWithChatRequest {
 }
 
 message TicketRequest {
-  string ticket_id = 1;
+  int32 ticket_id = 1;
 }
 
 message ChatRequest {
