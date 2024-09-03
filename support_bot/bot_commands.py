@@ -750,8 +750,11 @@ class Command(object):
                 self.client, self.room.room_id, msg,)
             return
         
-        await close_chat(self.client, self.store, chat.chat_room_id, self.config.matrix_logging_room)
-        
+        resp = await close_chat(self.client, self.store, chat.chat_room_id, self.config.matrix_logging_room)
+        if isinstance(resp, ErrorResponse):
+                msg = f"Failed to forcefully close Chat {chat.chat_room_id}: {resp.message}"
+                logger.warning(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg)
 
     async def _force_close_ticket(self):
         if len(self.args) < 1:
@@ -766,31 +769,20 @@ class Command(object):
             return
 
         ticket_id = int(ticket_id)
-            
+        
         ticket:Ticket = Ticket.get_existing(self.store, ticket_id)
         if not ticket:
             msg = f"Could not find Ticket with ticket id {ticket_id} to forcefully close"
             logger.warning(msg)
             await send_text_to_room(
                 self.client, self.room.room_id, msg,)
+            return
         else:
-            if ticket.status == TicketStatus.OPEN:
-                ticket.set_status(TicketStatus.CLOSED)
-
-                current_user_ticket_id = ticket.find_user_current_ticket_id()
-                if current_user_ticket_id == ticket.id:
-                    ticket.userRep.set_user_current_ticket_id(ticket.user_id, None)
-
-                msg = f"Forcefully closed Ticket {ticket.id}"
-                logger.info(msg)
-                await send_text_to_room(self.client, self.room.room_id, msg,)
-                if self.room.room_id != self.config.management_room_id:
-                    await send_text_to_room(self.client, self.config.management_room_id, msg,)
-                    
-            else:
-                msg = f"Ticket {ticket.id} is already closed"
-                logger.info(msg)
-                await send_text_to_room(self.client, self.room.room_id, msg,)
+            resp = await close_ticket(self.client, self.store, ticket_id, self.config.matrix_logging_room)
+            if isinstance(resp, ErrorResponse):
+                msg = f"Failed to forcefully close Ticket {ticket_id}: {resp.message}"
+                logger.warning(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg)
 
     async def _force_close_chat(self):
         if len(self.args) < 1:
@@ -806,8 +798,12 @@ class Command(object):
             await send_text_to_room(
                 self.client, self.room.room_id, msg,)
         else:
-            await close_chat(self.client, self.store, chat.chat_room_id, self.config.matrix_logging_room)
-
+            resp = await close_chat(self.client, self.store, chat.chat_room_id, self.config.matrix_logging_room)
+            if isinstance(resp, ErrorResponse):
+                msg = f"Failed to forcefully close Chat {chat.chat_room_id}: {resp.message}"
+                logger.warning(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg)
+                
     async def _close_ticket(self) -> None:
         """
         Staff close the current ticket.
@@ -819,10 +815,10 @@ class Command(object):
             logger.warning(err)
             await send_text_to_room(self.client, self.room.room_id, err,)
             return
-        
-        resp = await close_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
-        if isinstance(resp, ErrorResponse):
-            await send_text_to_room(self.client, self.room.room_id, f"Failed to close Ticket: {resp.message}")
+        else:
+            resp = await close_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
+            if isinstance(resp, ErrorResponse):
+                await send_text_to_room(self.client, self.room.room_id, f"Failed to close Ticket: {resp.message}")
     
     async def __delete_ticket_room(self) -> None:
         """
@@ -905,7 +901,9 @@ class Command(object):
         else:
             resp = await delete_ticket_room(self.client, self.store, ticket_id, self.config.matrix_logging_room)
             if isinstance(resp, ErrorResponse):
-                await send_text_to_room(self.client, self.room.room_id, f"Failed to delete Ticket: {resp.message}")
+                msg = f"Failed to delete Ticket {ticket_id}: {resp.message}"
+                logger.warning(msg)
+                await send_text_to_room(self.client, self.room.room_id, msg)
 
 
     async def _reopen_ticket(self) -> None:
@@ -938,7 +936,9 @@ class Command(object):
         
         resp = await reopen_ticket(self.client, self.store, ticket_id, self.config.management_room_id)
         if isinstance(resp, ErrorResponse):
-            await send_text_to_room(self.client, self.room.room_id, f"Failed to reopen ticket: {resp.message}")
+            msg = f"Failed to reopen Ticket {ticket_id}: {resp.message}"
+            logger.warning(msg)
+            await send_text_to_room(self.client, self.room.room_id, msg)
             
     async def _claim(self):
         """
@@ -954,7 +954,9 @@ class Command(object):
         
         resp = await claim(self.client, self.store, self.handler.staff.user_id, ticket_id)
         if isinstance(resp, ErrorResponse):
-            await send_text_to_room(self.client, self.room.room_id, f"Failed to claim ticket: {resp.message}")
+            msg = f"Failed to claim Ticket {ticket_id}: {resp.message}"
+            logger.warning(msg)
+            await send_text_to_room(self.client, self.room.room_id, msg)
                 
     async def _claimfor(self):
         """
@@ -970,7 +972,9 @@ class Command(object):
 
         resp = await claimfor(self.client, self.store, user_id, ticket_id)
         if isinstance(resp, ErrorResponse):
-            await send_text_to_room(self.client, self.room.room_id, f"Failed to claimfor ticket: {resp.message}")
+            msg = f"Failed to claimfor Ticket {ticket_id}: {resp.message}"
+            logger.warning(msg)
+            await send_text_to_room(self.client, self.room.room_id, msg)
 
     
 
@@ -1063,7 +1067,10 @@ async def reopen_ticket(client: AsyncClient, store: Storage, ticket_id: str, man
         """
         Staff reopen the current ticket, or specify and be reinvited to it.
         """
-
+        
+        if not isinstance(ticket_id, int):
+            return ErrorResponse(f"Ticket id must be of type int", Errors.EXCEPTION)
+        
         ticket = Ticket.get_existing(store, ticket_id)
         
         if not ticket:
@@ -1267,11 +1274,14 @@ async def close_chat(client: AsyncClient, store: Storage, chat_room_id:str, mana
             else:
                 return ErrorResponse(f"Chat {chat.chat_room_id} is already closed", Errors.INVALID_ROOM_STATE)
 
-async def delete_ticket_room(client: AsyncClient, store: Storage, ticket_id:str, management_room_id:str) -> Optional[ErrorResponse]:
+async def delete_ticket_room(client: AsyncClient, store: Storage, ticket_id:int, management_room_id:str) -> Optional[ErrorResponse]:
         """
         Staff delete the Ticket room.
         """
-
+        
+        if not isinstance(ticket_id, int):
+            return ErrorResponse(f"Ticket id must be of type int", Errors.EXCEPTION)
+        
         ticket:Ticket = Ticket.get_existing(store, ticket_id)
         if not ticket:
             return TicketNotFound(ticket_id)
