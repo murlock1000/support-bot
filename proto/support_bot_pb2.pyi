@@ -52,6 +52,18 @@ class TicketRequest(_message.Message):
     ticket_id: int
     def __init__(self, ticket_id: _Optional[int] = ...) -> None: ...
 
+class TicketMessagesRequest(_message.Message):
+    __slots__ = ("ticket_id", "start", "end", "limit")
+    TICKET_ID_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    ticket_id: int
+    start: str
+    end: str
+    limit: int
+    def __init__(self, ticket_id: _Optional[int] = ..., start: _Optional[str] = ..., end: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+
 class ChatRequest(_message.Message):
     __slots__ = ("chat_room_id",)
     CHAT_ROOM_ID_FIELD_NUMBER: _ClassVar[int]
@@ -63,12 +75,14 @@ class EmptyResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class MessageRequest(_message.Message):
-    __slots__ = ("room_id", "start")
+    __slots__ = ("room_id", "start", "end")
     ROOM_ID_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
     room_id: str
     start: str
-    def __init__(self, room_id: _Optional[str] = ..., start: _Optional[str] = ...) -> None: ...
+    end: str
+    def __init__(self, room_id: _Optional[str] = ..., start: _Optional[str] = ..., end: _Optional[str] = ...) -> None: ...
 
 class MessageResponse(_message.Message):
     __slots__ = ("room_id", "start", "end", "chunk")

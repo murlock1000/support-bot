@@ -13,7 +13,8 @@ from support_bot.bot_commands import (
     unassign_staff_from_ticket,
     unassign_staff_from_chat,
     delete_ticket_room,
-    delete_chat_room
+    delete_chat_room,
+    fetch_ticket_room_messages,
 )
 
 from support_bot.config import Config
@@ -71,6 +72,13 @@ class ThreadManager():
     #         return await self.wait_for(future, self.timeout)
     #     except asyncio.TimeoutError:
     #         return ErrorResponse("Timed out while fetching avatar url", Errors.ASYNC_TIMEOUT)
+    
+    async def fetch_ticket_messages(self, ticket_id: str, start:str, end:str, limit:int) -> Union[RoomMessagesResponse, ErrorResponse]:
+        future = asyncio.run_coroutine_threadsafe(fetch_ticket_room_messages(self.client, self.store, ticket_id, limit, start, end), self.main_loop)
+        try:
+            return await self.wait_for(future, self.timeout)
+        except asyncio.TimeoutError:
+            return ErrorResponse("Timed out while fetching ticket room messages", Errors.ASYNC_TIMEOUT)
 
     ### Command Handler methods
     async def remove_staff_from_ticket(self, user_id: str, ticket_id: str) -> Optional[ErrorResponse]:

@@ -62,6 +62,13 @@ message TicketRequest {
   int32 ticket_id = 1;
 }
 
+message TicketMessagesRequest {
+  int32 ticket_id = 1;
+  string start = 2;
+  string end = 3;
+  int32 limit = 4;
+}
+
 message ChatRequest {
   string chat_room_id = 1;
 }
@@ -71,12 +78,13 @@ message EmptyResponse {
 }
 
 service MessageHandler {
-  rpc FetchRoomMessages(MessageRequest) returns (MessageResponse) {}
+  rpc FetchTicketRoomMessages(TicketMessagesRequest) returns (MessageResponse) {}
 }
 
 message MessageRequest {
   string room_id = 1;
   string start = 2;
+  string end = 3;
 }
 
 message MessageResponse {
@@ -89,7 +97,7 @@ message MessageResponse {
 message Event {
   string event_id = 1;
   string sender = 2;
-  int32 server_timestamp = 3;
+  int64 server_timestamp = 3;
   google.protobuf.Struct content = 4;
 }
 

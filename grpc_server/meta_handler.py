@@ -1,14 +1,19 @@
 import asyncio
+import logging
 import grpc
 from grpc_server.thread_manager import ThreadManager
 import proto.support_bot_pb2 as support_bot_pb2
 import proto.support_bot_pb2_grpc as support_bot_pb2_grpc
+from google.protobuf.struct_pb2 import Struct
 
 from nio import (
     ProfileGetResponse,
     ErrorResponse,
     RoomMessagesResponse,
+    Event,
 )
+
+logger = logging.getLogger(__name__)
 
 class MetaHandler(support_bot_pb2_grpc.MetaHandler):
     def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:
@@ -30,28 +35,48 @@ class MetaHandler(support_bot_pb2_grpc.MetaHandler):
             context.set_details(resp.message)
             return support_bot_pb2.AvatarURLReply()
 
-# class RoomHandler(support_bot_pb2_grpc.RoomHandler):
-#     def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:
-#         self.main_loop = loop
-#         self.tm = tm
-#         super().__init__()
+class MessageHandler(support_bot_pb2_grpc.MessageHandler):
+    def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:
+        self.main_loop = loop
+        self.tm = tm
+        super().__init__()
         
-#     async def fetch_room_messages(
-#         self,
-#         request: support_bot_pb2.MessageRequest,
-#         context: grpc.aio.ServicerContext,
-#     ) -> support_bot_pb2.MessageResponse:
-#         resp = await self.tm.fetch_room_messages(request.room_id, request.start)
+    def convert_event_to_protobuf(self, event):
+        content_struct = Struct()
+        content_struct.update(event.source)
+
+        return support_bot_pb2.Event(
+            event_id=event.event_id,
+            sender=event.sender,
+            server_timestamp=event.server_timestamp,
+            content=content_struct
+        )
         
-#         if isinstance(resp, RoomMessagesResponse):
+    async def FetchTicketRoomMessages(
+        self,
+        request: support_bot_pb2.TicketMessagesRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> support_bot_pb2.MessageResponse:
+        resp = await self.tm.fetch_ticket_messages(request.ticket_id, request.start, request.end, request.limit)
+        if isinstance(resp, RoomMessagesResponse):
+            message_response = support_bot_pb2.MessageResponse(
+                room_id=resp.room_id,
+                start=resp.start,
+                end=resp.end
+            )
             
-            
-            
-#             return support_bot_pb2.MessageResponse(avatar_url=resp.avatar_url)
-#         elif isinstance(resp, ErrorResponse):
-#             context.set_code(500)
-#             context.set_details(resp.message)
-#             return support_bot_pb2.MessageResponse()
+            for message in resp.chunk:
+                if isinstance(message, Event):
+                    event_proto = self.convert_event_to_protobuf(message)
+                    message_response.chunk.append(event_proto)
+                else:
+                    logger.warning(f"Skipping unsupported message type: {type(message)}")
+                        
+            return message_response
+        elif isinstance(resp, ErrorResponse):
+            context.set_code(500)
+            context.set_details(resp.message)
+            return support_bot_pb2.MessageResponse()
 
 class CommandHandler(support_bot_pb2_grpc.CommandHandler):
     def __init__(self, loop: asyncio.AbstractEventLoop, tm:ThreadManager) -> None:

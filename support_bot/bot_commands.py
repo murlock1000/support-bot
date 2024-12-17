@@ -26,7 +26,7 @@ from nio.rooms import MatrixRoom
 from nio.events.room_events import RoomMessageText
 
 from support_bot import commands_help
-from support_bot.chat_functions import create_private_room, filtered_sync, invite_to_room, send_text_to_room, kick_from_room, \
+from support_bot.chat_functions import create_private_room, filtered_sync, get_room_messages, invite_to_room, send_text_to_room, kick_from_room, \
     find_private_msg, send_shared_history_keys, delete_room
 from support_bot.config import Config
 from support_bot.errors import Errors, TicketNotFound, ChatNotFound
@@ -1361,3 +1361,11 @@ async def unassign_support_from_ticket(client: AsyncClient, store: Storage, tick
                     )
             if isinstance(resp, RoomKickError):
                 logger.warning(f"Failed to kick user {user_id} from ticket ID: {ticket.id} in room {ticket.room_id}")
+
+async def fetch_ticket_room_messages(client: AsyncClient, store: Storage, ticket_id: str, limit=10, start:str = '', end:str = '') -> Optional[ErrorResponse]:
+    ticket:Ticket = Ticket.get_existing(store, ticket_id)
+    if not ticket:
+        return TicketNotFound(ticket_id)
+    
+    resp = await get_room_messages(client, ticket.ticket_room_id, limit, start, end)
+    return resp

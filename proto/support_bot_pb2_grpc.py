@@ -566,9 +566,9 @@ class MessageHandlerStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.FetchRoomMessages = channel.unary_unary(
-                '/support_bot.MessageHandler/FetchRoomMessages',
-                request_serializer=proto_dot_support__bot__pb2.MessageRequest.SerializeToString,
+        self.FetchTicketRoomMessages = channel.unary_unary(
+                '/support_bot.MessageHandler/FetchTicketRoomMessages',
+                request_serializer=proto_dot_support__bot__pb2.TicketMessagesRequest.SerializeToString,
                 response_deserializer=proto_dot_support__bot__pb2.MessageResponse.FromString,
                 )
 
@@ -576,7 +576,7 @@ class MessageHandlerStub(object):
 class MessageHandlerServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def FetchRoomMessages(self, request, context):
+    def FetchTicketRoomMessages(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -585,9 +585,9 @@ class MessageHandlerServicer(object):
 
 def add_MessageHandlerServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'FetchRoomMessages': grpc.unary_unary_rpc_method_handler(
-                    servicer.FetchRoomMessages,
-                    request_deserializer=proto_dot_support__bot__pb2.MessageRequest.FromString,
+            'FetchTicketRoomMessages': grpc.unary_unary_rpc_method_handler(
+                    servicer.FetchTicketRoomMessages,
+                    request_deserializer=proto_dot_support__bot__pb2.TicketMessagesRequest.FromString,
                     response_serializer=proto_dot_support__bot__pb2.MessageResponse.SerializeToString,
             ),
     }
@@ -601,7 +601,7 @@ class MessageHandler(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def FetchRoomMessages(request,
+    def FetchTicketRoomMessages(request,
             target,
             options=(),
             channel_credentials=None,
@@ -611,8 +611,8 @@ class MessageHandler(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/support_bot.MessageHandler/FetchRoomMessages',
-            proto_dot_support__bot__pb2.MessageRequest.SerializeToString,
+        return grpc.experimental.unary_unary(request, target, '/support_bot.MessageHandler/FetchTicketRoomMessages',
+            proto_dot_support__bot__pb2.TicketMessagesRequest.SerializeToString,
             proto_dot_support__bot__pb2.MessageResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

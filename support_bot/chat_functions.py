@@ -19,7 +19,8 @@ from nio import (
     RoomInviteResponse, RoomKickResponse, RoomKickError,
     MatrixRoom, RoomAvatarEvent, ProfileGetAvatarResponse,
     DownloadResponse, RoomLeaveError, RoomForgetError,
-    ToDeviceMessage, SyncError, SyncResponse, Api
+    ToDeviceMessage, SyncError, SyncResponse, Api,
+    RoomMessagesResponse, RoomMessagesError
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
 from support_bot.errors import RoomNotEncrypted, RoomNotFound, Errors
@@ -502,4 +503,20 @@ async def get_user_profile_pic(client: AsyncClient, user_id: str):
         resp = await client.download(resp.avatar_url)
     if not isinstance(resp, DownloadResponse):
         logger.warning(f"Failed to fetch user profile: {resp.status_code}, {resp.message}")
+    return resp
+
+async def get_room_messages(client: AsyncClient, room_id:str, limit=10, start:str = '', end:str = '') -> Union[RoomMessagesResponse, RoomMessagesError]:    
+    if end is None:
+        end = client.loaded_sync_token
+        
+    if room_id not in client.rooms:
+        msg = f"Failed fetching messages for Room with room id {room_id} not found."
+        logger.warning(msg)
+        return RoomMessagesError(msg, room_id=room_id, status_code="get_room_messages_error")
+    
+    resp = await client.room_messages(room_id, start, end, limit = limit)
+    
+    if isinstance(resp, RoomMessagesError):
+        logger.warning(f"Failed to fetch room messages for room {resp.room_id}: {resp.status_code}, {resp.message}")
+    
     return resp
