@@ -8,7 +8,7 @@ from nio.rooms import MatrixRoom
 
 from support_bot.event_responses import Message
 from support_bot.bot_commands import Command
-from support_bot.chat_functions import send_reaction, send_text_to_room
+from support_bot.chat_functions import get_rx_id_from_reply, send_reaction, send_text_to_room
 from support_bot.config import Config
 from support_bot.handlers.EventStateHandler import LogLevel
 from support_bot.storage import Storage
@@ -45,22 +45,16 @@ class TextMessage(Message):
 
         reply_section = get_reply_msg(self.event, reply_to, replaces)
         raise_section = get_raise_msg(self.event, reply_to, replaces)
-
+        rx_id = await get_rx_id_from_reply(self.client, self.room.room_id, reply_to)
+        
         if not reply_section:
             if not raise_section:
                 logger.debug(
                     f"Skipping {self.event.event_id} which does not look like a reply"
                 )
                 return
-            #raise_text = raise_section[raise_section.find("!raise ") + 7:]
-            #logger.debug(f"RAISE: {raise_text}")
             if reply_to:
-                #message = self.store.get_message_by_management_event_id(reply_to)
-               # if message:
-                reply_rx_pattern = re.compile(r".+(@[^\s]*)")
-                match = reply_rx_pattern.match(self.event.body)
-                if match:
-                    rx_id = match[1]  # Get the id from regex group
+                if rx_id:
                     if self.client.user_id in rx_id:
                         await send_text_to_room(
                             self.client,
