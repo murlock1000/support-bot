@@ -20,7 +20,8 @@ from nio import (
     MatrixRoom, RoomAvatarEvent, ProfileGetAvatarResponse,
     DownloadResponse, RoomLeaveError, RoomForgetError,
     ToDeviceMessage, SyncError, SyncResponse, Api,
-    RoomMessagesResponse, RoomMessagesError
+    RoomMessagesResponse, RoomMessagesError,
+    RoomGetEventError, RoomGetEventResponse
 )
 from nio.crypto import OlmDevice, InboundGroupSession, Session
 from support_bot.errors import RoomNotEncrypted, RoomNotFound, Errors
@@ -29,7 +30,7 @@ from support_bot.errors import RoomNotEncrypted, RoomNotFound, Errors
 #from support_bot.config import Config
 #from support_bot.models.Chat import chat_room_name_pattern
 #from support_bot.models.Ticket import ticket_name_pattern
-from support_bot.utils import get_room_id, with_ratelimit
+from support_bot.utils import get_mentions, get_room_id, with_ratelimit
 
 logger = logging.getLogger(__name__)
 _FilterT = Union[None, str, Dict[Any, Any]]
@@ -520,3 +521,20 @@ async def get_room_messages(client: AsyncClient, room_id:str, limit=10, start:st
         logger.warning(f"Failed to fetch room messages for room {resp.room_id}: {resp.status_code}, {resp.message}")
     
     return resp
+
+async def get_rx_id_from_reply(client:AsyncClient, room_id:str, reply_to: str):
+    if reply_to is None or room_id is None:
+        return None
+    
+    # Fetch reply event
+    resp = await client.room_get_event(room_id, reply_to)
+    if isinstance(resp, RoomGetEventError):
+        logger.warning(f"Failed to fetch reply event for room {room_id} reply_to {reply_to}: {resp.status_code}, {resp.message}")
+    elif isinstance(resp, RoomGetEventResponse):
+        reply_event = resp.event
+        mentions = get_mentions(reply_event.body)
+        if len(mentions) == 0:
+            return None
+        else:
+            return mentions[0]
+    return None
